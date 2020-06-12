@@ -39,13 +39,15 @@ $(document).ready(function(){
     //var wsUri = "ws://127.0.0.1:8080/ws";    
 
     $('#message').keypress(function (e) {
-     var key = e.which;
-     if(key == 13)  // the enter key code
-      {
-        $('#send-btn').click();
-        return false;  
-      }
-    });   
+        var key = e.which;
+        if(key == 13)  // the enter key code
+        {
+            $('#send-btn').click();
+            return false;  
+        }
+    }); 
+
+    $('#name').attr("value", "Petya")
 
     var wsUri = "ws://192.168.1.49:8080/ws";    
     websocket = new WebSocket(wsUri);
