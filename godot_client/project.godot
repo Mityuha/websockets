@@ -16,12 +16,8 @@ _global_script_class_icons={
 [application]
 
 config/name="Websocket Chat Demo"
-run/main_scene="res://combo/combo.tscn"
+run/main_scene="res://client.tscn"
 config/icon="res://icon.png"
-
-[autoload]
-
-Utils="*res://utils.gd"
 
 [gdnative]
 
