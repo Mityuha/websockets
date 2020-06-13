@@ -71,6 +71,7 @@ class Roomer:
                 break
         else:
             free_room = Room(name=ROOM_NAME_TEMPLATE.format(len(self.rooms)))
+            self.rooms.append(free_room)
 
         if free_room.is_empty():
             free_room.messages.clear()
