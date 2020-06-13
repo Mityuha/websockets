@@ -49,7 +49,7 @@ $(document).ready(function(){
 
     $('#name').attr("value", "Petya")
 
-    var wsUri = "ws://192.168.1.49:8080/ws";    
+    var wsUri = "ws://127.0.0.1:8080/ws";    
     websocket = new WebSocket(wsUri);
 
     websocket.onopen = function(ev) { // connection is open
