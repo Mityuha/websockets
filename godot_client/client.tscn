@@ -33,7 +33,7 @@ margin_bottom = 24.0
 margin_right = 956.0
 margin_bottom = 24.0
 size_flags_horizontal = 3
-text = "ws://127.0.0.1:8080/ws"
+text = "wss://127.0.0.1:8443/ws"
 placeholder_text = "ws://my.server/path/"
 
 [node name="Connect" type="Button" parent="Panel/VBoxContainer/Connect"]
@@ -49,15 +49,15 @@ margin_right = 1024.0
 margin_bottom = 52.0
 
 [node name="UserName" type="LineEdit" parent="Panel/VBoxContainer/Send"]
-margin_right = 100.0
+margin_right = 486.0
 margin_bottom = 24.0
 size_flags_horizontal = 3
 text = "Godot"
 placeholder_text = "Enter some text to send..."
 
 [node name="LineEdit" type="LineEdit" parent="Panel/VBoxContainer/Send"]
-margin_left = 110.0
-margin_right = 970.0
+margin_left = 490.0
+margin_right = 976.0
 margin_bottom = 24.0
 size_flags_horizontal = 3
 placeholder_text = "Enter some text to send..."

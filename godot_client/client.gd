@@ -16,6 +16,7 @@ func _log(node, msg):
 	node.add_text(str(msg) + "\n")
 
 func _init():
+	_client.verify_ssl = false
 	_client.connect("connection_established", self, "_client_connected")
 	_client.connect("connection_error", self, "_client_disconnected")
 	_client.connect("connection_closed", self, "_client_disconnected")
