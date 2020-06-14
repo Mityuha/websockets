@@ -2,6 +2,8 @@ import logging
 import json
 import asyncio
 import aiohttp
+import ssl
+import os
 from aiohttp import web
 
 ROOM_NAME_TEMPLATE = "Room-{}"
@@ -235,8 +237,17 @@ if __name__ == "__main__":
         asyncio.ensure_future(ping_participants(_roomer)) for _ in range(1)
     ]
 
-    web.run_app(app, host="0.0.0.0", port=8080)
+    use_ssl = True
 
-    print("here")
+    if use_ssl:
+        cert_path = os.getenv("CERTFILE_PATH")
+        privkey_path = os.getenv("PRIVKEY_PATH")
+
+        ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ssl_context.load_cert_chain(cert_path, privkey_path)
+        web.run_app(app, host="0.0.0.0", port=8443, ssl_context=ssl_context)
+    else:
+        web.run_app(app, host="0.0.0.0", port=8080)
+
     for task in background_tasks:
         task.cancel()
