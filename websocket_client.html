@@ -49,7 +49,7 @@ $(document).ready(function(){
 
     $('#name').attr("value", "Petya")
 
-    var wsUri = "ws://127.0.0.1:8080/ws";    
+    var wsUri = "wss://127.0.0.1:8443/ws";    
     websocket = new WebSocket(wsUri);
 
     websocket.onopen = function(ev) { // connection is open
@@ -79,6 +79,7 @@ $(document).ready(function(){
         //convert and send data to server
         websocket.send(JSON.stringify(msg));
         $('#message_box').append("<div align=\"right\"><span class=\"user_name\">"+myname+"</span> : <span class=\"user_message\">"+mymessage+"</span></div>");
+        $("#message_box").scrollTop($("#message_box")[0].scrollHeight);
         $('#message').val(''); //reset text    
     });
 
@@ -101,6 +102,8 @@ $(document).ready(function(){
             }
     
         });
+        $("#message_box").scrollTop($("#message_box")[0].scrollHeight);
+
         
     };
 
