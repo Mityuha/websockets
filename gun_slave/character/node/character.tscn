@@ -22,16 +22,13 @@ editor_draw_drag_margin = true
 
 [node name="shape" type="CollisionShape2D" parent="."]
 position = Vector2( -6.02982, -0.250824 )
-skew = 4.37114e-08
 shape = SubResource( 1 )
 
 [node name="img" type="Sprite" parent="."]
 rotation = 1.5708
-skew = 4.37114e-08
 z_index = 2
 texture = ExtResource( 1 )
 region_enabled = true
 region_rect = Rect2( 0, 64, 32, 32 )
 
 [node name="weapon" parent="." instance=ExtResource( 3 )]
-skew = 4.37114e-08
