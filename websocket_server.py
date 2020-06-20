@@ -5,9 +5,13 @@ import aiohttp
 import ssl
 import os
 from aiohttp import web
+import struct
 
 ROOM_NAME_TEMPLATE = "Room-{}"
 ROOM_LIMIT = 3
+MAX_HEALTH = 100
+SPEED = 200.0
+PRESS_TIME = 0.016
 
 
 def room_num(room_name):
@@ -23,20 +27,35 @@ def system_message(text):
 
 
 class Room:
+    __slots__ = ("name", "number", "limit", "entities", "free_places")
+
     def __init__(self, name, limit=ROOM_LIMIT):
         self.name = name
+        self.number = room_num(name)
         self.limit = limit
-        self.participants = set()
-        self.messages = []
+        self.entities = [None] * limit
+        self.free_places = {i for i in range(limit)}
 
     def is_full(self):
-        return len(self.participants) == self.limit
+        return not self.free_places
 
     def is_empty(self):
-        return not self.participants
+        return len(self.free_places) == self.limit
+
+    def add_entity(self, entity):
+        new_id = self.free_places.pop()
+        self.entities[new_id] = entity
+        return new_id
+
+    def remove_entity(self, entity):
+        self.entities[entity.entity_id] = None
+        self.free_places.add(entity.entity_id)
+
+    def active_entities_count(self):
+        return self.limit - len(self.free_places)
 
 
-class Participant:
+class Connection:
     __slots__ = ("ip_addr", "port", "wsocket")
 
     def __init__(self, ip_addr, port, wsocket):
@@ -50,19 +69,65 @@ class Participant:
     def __eq__(self, other):
         return (self.ip_addr, self.port) == (other.ip_addr, other.port)
 
-    async def send(self, messages, is_ping=False):
-        if type(messages) is not list:
-            messages = [messages]
+    async def send(self, state, is_ping=False):
+        if state or is_ping:
+            await self.wsocket.send_bytes(state)
 
-        if messages or is_ping:
-            await self.wsocket.send_json(messages)
+
+class Entity:
+    __slots__ = (
+        "connection",
+        "entity_id",
+        "pending_inputs",
+        "last_processed_input",
+        "health",
+        "speed",
+        "position",
+    )
+
+    def __init__(self, connection):
+        self.connection = connection
+        self.entity_id = None
+        self.pending_inputs = []
+        self.last_processed_input = -1
+        self.health = MAX_HEALTH
+        self.speed = SPEED
+        self.position = (200.0, 200.0)
+
+    def __hash__(self):
+        return hash(self.entity_id)
+
+    def __eq__(self, other):
+        return self.entity_id == other.entity_id
+
+    def apply_input(self, einput):
+        assert einput[1] == self.entity_id
+        x, y = 0, 0
+        # 0 -- down, 1 -- left, 2 -- up, 3 -- right
+        x += (einput[2] >> 3) & 1
+        x -= (einput[2] >> 1) & 1
+        y += (einput[2] >> 0) & 1
+        y -= (einput[2] >> 2) & 1
+        x *= self.speed
+        y *= self.speed
+        self.position = (
+            self.position[0] + x * PRESS_TIME,
+            self.position[1] + y * PRESS_TIME,
+        )
+        self.last_processed_input = einput[0]
+
+    def encode_position(self):
+        return struct.pack("I", int(self.position[0])) + struct.pack(
+            "I", int(self.position[1])
+        )
 
 
 class Roomer:
     def __init__(self, limit=ROOM_LIMIT):
         self.limit = limit
         self.rooms = [Room(name=ROOM_NAME_TEMPLATE.format(0))]
-        self.participant2room = {}
+        self.entity2room = {}
+        self.connection2entity = {}
 
     def _find_free_room(self):
         """return not full room instance"""
@@ -75,39 +140,53 @@ class Roomer:
             free_room = Room(name=ROOM_NAME_TEMPLATE.format(len(self.rooms)))
             self.rooms.append(free_room)
 
-        if free_room.is_empty():
-            free_room.messages.clear()
-
         return free_room
 
     async def new_participant(self, ip_addr, port, wsocket):
         """return participant room name"""
         log = logging.getLogger(__name__)
-        participant = Participant(ip_addr, port, wsocket)
+        connection = Connection(ip_addr, port, wsocket)
         free_room = self._find_free_room()
 
+        entity = Entity(connection)
+        entity.entity_id = free_room.add_entity(entity)
+
         log.debug(
-            "%s: new participant, room %s (%s #)",
+            "%s: new entity, room %s (%s #)",
             (ip_addr, port),
             free_room.name,
-            len(free_room.participants) + 1,
+            free_room.active_entities_count(),
         )
 
-        history = [system_message(free_room.name)] + free_room.messages[-10:]
-        await participant.send(history)
-        log.debug("%s: history sended (%s messages)", (ip_addr, port,), len(history))
+        # TODO: packages
+        await entity.connection.send(
+            bytes([0, entity.entity_id]) + entity.encode_position()
+        )
 
-        free_room.participants.add(participant)
-        self.participant2room[participant] = free_room
+        # history = [system_message(free_room.name)] + free_room.messages[-10:]
+        # await participant.send(history)
+        # log.debug("%s: history sended (%s messages)", (ip_addr, port,), len(history))
+
+        self.entity2room[entity] = free_room
+        self.connection2entity[connection] = entity
 
         return
 
     def participant_left(self, ip_addr, port):
         """process participant left"""
         log = logging.getLogger(__name__)
-        participant = Participant(ip_addr, port, wsocket=None)
+        connection = Connection(ip_addr, port, wsocket=None)
         try:
-            room = self.participant2room.pop(participant)
+            entity = self.connection2entity[connection]
+        except KeyError:
+            log.info(
+                "%s: participant has already left (from background ping)",
+                (ip_addr, port),
+            )
+            return
+
+        try:
+            room = self.entity2room.pop(entity)
         except KeyError:
             log.info(
                 "%s: participant has already left (from background ping)",
@@ -115,38 +194,27 @@ class Roomer:
             )
             return
         else:
-            room.participants.discard(participant)
+            room.remove_entity(entity)
+
         log.debug(
             "%s left from room %s (%s #)",
             (ip_addr, port),
             room.name,
-            len(room.participants),
+            room.active_entities_count(),
         )
         return
 
-    async def new_message(self, ip_addr, port, message):
+    async def new_input(self, ip_addr, port, entity_input):
         """process participant new message"""
         log = logging.getLogger(__name__)
-        participant = Participant(ip_addr, port, wsocket=None)
-        log.debug("%s: new message %s", (ip_addr, port), message)
+        connection = Connection(ip_addr, port, wsocket=None)
+        log.debug("%s: new message %s", (ip_addr, port), entity_input)
         try:
-            room = self.participant2room[participant]
+            entity = self.connection2entity[connection]
         except KeyError:
-            log.exception("%s: No room, what's happening?", (ip_addr, port))
+            log.exception("%s: No entity, what's happening?", (ip_addr, port))
             return
-        else:
-            for room_participant in room.participants.copy():
-                if room_participant == participant:
-                    continue
-                # await asyncio.sleep(10)
-                await room_participant.send(message)
-            room.messages.append(message)
-        log.debug(
-            "%s: message proceed in room %s (%s #)",
-            (ip_addr, port),
-            room.name,
-            len(room.participants),
-        )
+        entity.pending_inputs.append(entity_input)
         return
 
 
@@ -167,22 +235,13 @@ async def websocket_handler(request):
     roomer = request.app["roomer"]
     await roomer.new_participant(*remote, wsocket=ws)
 
+    fmt = "<IBB"
+
     async for message in ws:
-        if message.type == aiohttp.WSMsgType.TEXT:
-            try:
-                msg = message.json()
-            except json.JSONDecodeError:
-                log.exception(
-                    "%s: Cannot decode message: %s\nclose client", remote, message
-                )
-                ws.send_json(
-                    system_message(
-                        "Json decode error: your message should be json formatted"
-                    )
-                )
-                continue
-            else:
-                await roomer.new_message(*remote, message=msg)
+        if message.type == aiohttp.WSMsgType.BINARY:
+            data, _ = struct.unpack(fmt, message.data[:6]), message.data[6:]
+            await roomer.new_input(*remote, entity_input=data)
+            # await asyncio.sleep(0.1)
 
         elif message.type == aiohttp.WSMsgType.ERROR:
             log.warning(
@@ -197,13 +256,61 @@ async def websocket_handler(request):
 async def ping_participants(roomer):
     log = logging.getLogger(__name__)
     while True:
-        for participant in roomer.participant2room.copy():
-            if not participant.wsocket.closed:
+        for entity in roomer.entity2room.copy():
+            log.debug(
+                "%s: connection.wsocket.closed: %s",
+                entity.entity_id,
+                entity.connection.wsocket.closed,
+            )
+            if not entity.connection.wsocket.closed:
                 continue
-            log.debug("%s: socket closed", (participant.ip_addr, participant.port))
-            roomer.participant_left(participant.ip_addr, participant.port)
+            log.debug(
+                "%s: socket closed", (entity.connection.ip_addr, entity.connection.port)
+            )
+            roomer.participant_left(entity.connection.ip_addr, entity.connection.port)
             continue
         await asyncio.sleep(10)
+
+
+async def _process_inputs(roomer):
+    log = logging.getLogger(__name__)
+    for room in roomer.rooms:
+        if room.is_empty():
+            continue
+        log.debug("room %s is not empty", room.name)
+        for entity in room.entities:
+            if entity is None:
+                continue
+            log.debug(
+                "%s: is not none, %s pending_inputs",
+                entity.entity_id,
+                len(entity.pending_inputs),
+            )
+            for einput in entity.pending_inputs.copy():
+                entity.apply_input(einput)
+            entity.pending_inputs.clear()
+
+            print("entity last processed input = ", entity.last_processed_input)
+            if entity.last_processed_input == -1:
+                continue
+
+            state = (
+                bytes([1, entity.entity_id])
+                + struct.pack("I", entity.last_processed_input)
+                + entity.encode_position()
+            )
+            await entity.connection.send(state)
+            log.debug("%s: position: %s", entity.entity_id, entity.position)
+
+
+async def process_inputs(roomer):
+    log = logging.getLogger(__name__)
+    while True:
+        try:
+            await _process_inputs(roomer)
+        except BaseException:
+            log.exception("")
+        await asyncio.sleep(0.1)
 
 
 if __name__ == "__main__":
@@ -236,8 +343,11 @@ if __name__ == "__main__":
     background_tasks = [
         asyncio.ensure_future(ping_participants(_roomer)) for _ in range(1)
     ]
+    background_tasks += [
+        asyncio.ensure_future(process_inputs(_roomer)) for _ in range(1)
+    ]
 
-    use_ssl = True
+    use_ssl = False
 
     if use_ssl:
         cert_path = os.getenv("CERTFILE_PATH")
