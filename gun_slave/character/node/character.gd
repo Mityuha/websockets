@@ -12,7 +12,7 @@ export var velocity:Vector2 = Vector2.ZERO;
 
 
 var entities:Dictionary = {}
-var entity_id: int = 0;
+var entity_id = null;
 var pending_inputs: Array = [] # for me
 var state_buffer: Array = [] # for other client entities
 var input_sequence_number: int = 0
@@ -27,16 +27,17 @@ func _ready():
 	self.world = get_parent().get_parent()
 		
 class PInput:
-	var _right: bool
-	var _left: bool
-	var _up: bool
-	var _down: bool
-	var _press_time;
-	var _trigger: bool
-	var _look_at: Vector2
 	var _input_sequence_number: int
 	var _entity_id: int
+	var _right: bool = false
+	var _left: bool = false
+	var _up: bool = false
+	var _down: bool = false 
+	var _trigger: bool = false
+	var _press_time: float
+	var _look_at: Vector2
 	func _init(): pass
+	
 	
 func apply_input(input: PInput):
 	self.velocity.x += int(input._right)
@@ -45,11 +46,13 @@ func apply_input(input: PInput):
 	self.velocity.y -= int(input._up)
 	self.velocity = self.velocity.normalized() * self.speed
 	look_at(input._look_at)
-	move_and_slide(self.velocity)
+# warning-ignore:return_value_discarded
+	#move_and_slide(self.velocity)
+	self.position += velocity * input._press_time
 
-func process_inputs(delta)->void:
+func process_inputs(delta)->PInput:
 	if !self.is_player:
-		return;
+		return null;
 		
 #	var now_ts = OS.get_ticks_msec()
 #	self.last_ts = self.last_ts or now_ts
@@ -58,6 +61,10 @@ func process_inputs(delta)->void:
 	
 	var input = PInput.new();
 	input._press_time = delta
+		
+	var _look_at = get_global_mouse_position()
+	
+	var norm = (_look_at - self.position).normalized()
 		
 	input._look_at = get_global_mouse_position();
 	velocity = Vector2.ZERO
@@ -83,11 +90,10 @@ func process_inputs(delta)->void:
 			$camera.zoom.x -= 0.1;
 			$camera.zoom.y -= 0.1;
 	
-	send_input_to_server(input);
-	apply_input(input)
-	
 	# TODO: right after server messages handling
-	#self.pending_inputs.append(input)
+	self.pending_inputs.append(input)
+	
+	return input
 	
 
 func hit(damage:int)->void:
