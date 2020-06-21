@@ -12,7 +12,7 @@ export var velocity:Vector2 = Vector2.ZERO;
 
 
 var entities:Dictionary = {}
-var entity_id = null;
+var entity_id = 1;
 var pending_inputs: Array = [] # for me
 var state_buffer: Array = [] # for other client entities
 var input_sequence_number: int = 0

@@ -1,7 +1,7 @@
 extends Node
 
 
-export var HOST: String = "ws://127.0.0.1:8080/ws"
+export var HOST: String = "ws://localhost:8080/"
 const is_multiplayer: bool = true
 
 func on_connected():
@@ -9,6 +9,7 @@ func on_connected():
 	
 func on_disconnected():
 	self.set_physics_process(false)
+	$NetManager.disconnect_from_host()
 	$NetManager.connect_to_url(HOST)
 
 # Called when the node enters the scene tree for the first time.
@@ -59,6 +60,8 @@ func send_input_to_server(input):
 	$NetManager.send_data(bytes)
 	
 func encode_input(input):
+	if $NetManager._use_multiplayer:
+		return input
 	var res: PoolByteArray = PoolByteArray()
 	res.append_array($NetManager.int_2_bytes(input._input_sequence_number))
 	res.append(input._entity_id)
@@ -78,9 +81,9 @@ func _physics_process(delta):
 	
 	process_server_messages()
 	
-	if $character.entity_id == null:
-		# not connected yet
-		return	
+#	if $character.entity_id == null:
+#		# not connected yet
+#		return	
 		
 	var input = $character.process_inputs(delta);
 	if not ($character.input_sequence_number % 1000):
