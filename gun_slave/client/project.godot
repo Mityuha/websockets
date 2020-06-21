@@ -33,6 +33,11 @@ config/icon="res://icon.png"
 [autoload]
 
 Utils="*res://common/utils.gd"
+Types="*res://common/types.gd"
+
+[global]
+
+port=false
 
 [input]
 

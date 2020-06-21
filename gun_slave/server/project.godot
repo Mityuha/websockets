@@ -21,6 +21,7 @@ run/main_scene="res://server.tscn"
 [autoload]
 
 Utils="*res://common/utils.gd"
+Types="*res://common/types.gd"
 
 [gdnative]
 

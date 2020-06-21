@@ -123,8 +123,5 @@ script = ExtResource( 3 )
 position = Vector2( 208.74, 238.134 )
 is_player = true
 
-[node name="character2" parent="Manager" instance=ExtResource( 2 )]
-position = Vector2( 362.889, 136.31 )
-
 [node name="NetManager" type="Node" parent="Manager"]
 script = ExtResource( 4 )

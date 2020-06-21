@@ -21,6 +21,7 @@ func _exit_tree():
 	_clients.clear()
 	_server.stop()
 
+# warning-ignore:unused_argument
 func _process(delta):
 	if _server.is_listening():
 		_server.poll()
@@ -33,6 +34,12 @@ func _client_connected(id, protocol):
 	_clients[id].set_write_mode(_write_mode)
 	last_connected_client = id
 	Utils._log("%s: Client connected with protocol %s" % [id, protocol])
+	# TODO
+	var init_state = Types.InitialState.new()
+	init_state.position = Vector2(200, 200)
+	init_state.entity_id = id
+	var obj = Types.serialize_initial_state(init_state)
+	send_data(obj, id)
 
 func _client_disconnected(id, clean = true):
 	Utils._log("Client %s disconnected. Was clean: %s" % [id, clean])
@@ -43,20 +50,19 @@ func _client_receive(id):
 	if _use_multiplayer:
 		var peer_id = _server.get_packet_peer()
 		var packet = _server.get_packet()
-		var data = Utils.decode_data(packet, false)
+		var data = Utils.decode_data(packet)
 		Utils._log("MPAPI: From %s data: %s" % [peer_id, data])
 	else:
 		var packet = _server.get_peer(id).get_packet()
-		var is_string = _server.get_peer(id).was_string_packet()
-		Utils._log("Data from %s BINARY: %s: %s" % [id, not is_string, Utils.decode_data(packet, is_string)])
+		Utils._log("Data from %s BINARY: %s" % [id, Utils.decode_data(packet)])
 
 func send_data(data, dest):
 	if _use_multiplayer:
 		_server.set_target_peer(dest)
-		_server.put_packet(Utils.encode_data(data, _write_mode))
+		_server.put_packet(Utils.encode_data(data))
 	else:
 		for id in _clients:
-			_server.get_peer(id).put_packet(Utils.encode_data(data, _write_mode))
+			_server.get_peer(id).put_packet(Utils.encode_data(data))
 
 func listen(port, supported_protocols=null, multiplayer=true):
 	if not supported_protocols:

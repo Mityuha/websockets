@@ -33,11 +33,11 @@ func bytes_2_int(bytes: PoolByteArray, bytes_num=4)->int:
 		res |= bytes[i] << (8 * i);
 	return res
 
-func encode_data(data, mode):
-	return data.to_utf8() if mode == WebSocketPeer.WRITE_MODE_TEXT else var2bytes(data)
+func encode_data(data)->PoolByteArray:
+	return var2bytes(data)
 
-func decode_data(data, is_string):
-	return data.get_string_from_utf8() if is_string else bytes2var(data)
+func decode_data(data: PoolByteArray):
+	return bytes2var(data)
 
 func _log(msg):
 	print(msg)
