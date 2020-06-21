@@ -1,0 +1,21 @@
+[remap]
+
+importer="wav"
+type="AudioStreamSample"
+path="res://.import/ak47.wav-d339ea4b08c382ffbecd938e6b32e98a.sample"
+
+[deps]
+
+source_file="res://weapon/sound/ak47.wav"
+dest_files=[ "res://.import/ak47.wav-d339ea4b08c382ffbecd938e6b32e98a.sample" ]
+
+[params]
+
+force/8_bit=true
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop=false
+compress/mode=0

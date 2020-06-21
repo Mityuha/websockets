@@ -4,6 +4,7 @@ class_name character
 
 var blood_obj = preload("res://effect/blood/node/blood.tscn");
 
+
 export var is_player:bool = false;
 export var max_health:int = 100;
 var health:int = max_health;
@@ -39,7 +40,7 @@ func get_input()->void:
 			$camera.zoom.y -= 0.1;
 	self.velocity = self.velocity.normalized() * self.speed
 
-func _physics_process(delta):
+func _physics_process(_delta):
 	self.get_input();
 	self.move_and_slide(self.velocity);
 
