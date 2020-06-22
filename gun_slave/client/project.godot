@@ -12,12 +12,12 @@ _global_script_classes=[ {
 "base": "KinematicBody2D",
 "class": "bullet",
 "language": "GDScript",
-"path": "res://bullet/node/bullet.gd"
+"path": "res://common/script/bullet.gd"
 }, {
 "base": "KinematicBody2D",
 "class": "character",
 "language": "GDScript",
-"path": "res://character/node/character.gd"
+"path": "res://common/script/character.gd"
 } ]
 _global_script_class_icons={
 "bullet": "",

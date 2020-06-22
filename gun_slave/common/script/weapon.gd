@@ -1,6 +1,6 @@
 extends Node2D
 
-var bullet_obj = preload("res://bullet/node/bullet.tscn");
+var bullet_obj = preload("res://common/scene/bullet.tscn");
 var max_fire_rate:float = 200;
 var last_touch_time;
 

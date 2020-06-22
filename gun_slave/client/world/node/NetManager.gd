@@ -56,11 +56,11 @@ func _client_received(p_id = 1):
 		var peer_id = _client.get_packet_peer()
 		var packet = _client.get_packet()
 		data = Utils.decode_data(packet)
-		Utils._log("MPAPI: From %s Data: %s" % [str(peer_id), data])
+		#Utils._log("MPAPI: From %s Data: %s" % [str(peer_id), data])
 	else:
 		var packet = _client.get_peer(1).get_packet()
 		data = Utils.decode_data(packet)
-		Utils._log("Received data. BINARY: %s" % [Utils.decode_data(packet)])
+		#Utils._log("Received data. BINARY: %s" % [Utils.decode_data(packet)])
 		
 	receive_message_queue.push_back(data)	
 

@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=2]
 
-[ext_resource path="res://bullet/node/bullet.gd" type="Script" id=1]
-[ext_resource path="res://bullet/image/bullet.png" type="Texture" id=2]
+[ext_resource path="res://common/script/bullet.gd" type="Script" id=1]
+[ext_resource path="res://common/resource/image/bullet.png" type="Texture" id=2]
 
 [sub_resource type="CapsuleShape2D" id=1]
 radius = 0.675185

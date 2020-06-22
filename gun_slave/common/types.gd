@@ -17,6 +17,7 @@ class EntityInput:
 	var trigger: bool = false
 	var press_time: float
 	var look_at: Vector2
+	# var interpolation_percent: float = 0.0
 	
 	
 class InitialState:
@@ -29,6 +30,8 @@ class EntityState:
 	var entity_id: int
 	var last_processed_input: int
 	var position: Vector2
+	var look_at: Vector2
+	var is_triggered: bool
 	
 		
 class WorldState:
@@ -59,6 +62,12 @@ func serialize_world_state(world_state: WorldState)-> Dictionary:
 	return inst2dict(world_state)
 
 func deserialize_world_state(dict: Dictionary)-> Object:
+	return dict2inst(dict)
+	
+func serialize_entity_state(entity_state: EntityState)-> Dictionary:
+	return inst2dict(entity_state)
+	
+func deserialize_entity_state(dict: Dictionary)-> Object:
 	return dict2inst(dict)
 	
 func serialize_initial_state(init_state: InitialState)-> Dictionary:
