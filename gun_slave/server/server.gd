@@ -27,7 +27,9 @@ func _exit_tree():
 	_server.stop()
 		
 func poll(_delta):
-	if _server.is_listening():
+	while true:
+		if not _server.is_listening():
+			break
 		_server.poll()
 		
 func _client_close_request(id, code, reason):
@@ -46,6 +48,9 @@ func _client_disconnected(id, clean = true):
 	if _clients.has(id):
 		_clients.erase(id)
 	disconnected_clients_queue.append(id)
+	
+func _disconnect_client(id, code=1000, reason="timeout"):
+	return _server.disconnect_peer(id, code, reason)
 
 func _client_receive(id):
 	var data = null

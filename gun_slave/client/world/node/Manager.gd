@@ -3,8 +3,10 @@ extends Node
 
 export var HOST: String = "ws://localhost:8080/"
 const is_multiplayer: bool = true
+const INTERPOLATION_INTERVAL:float = 1.0 / 10; #ms
 
 var entities: Dictionary = {}
+var disconnected_ids: Array = []
 
 var entity_obj = preload("res://common/scene/character.tscn");
 
@@ -12,6 +14,8 @@ func on_connected():
 	self.set_physics_process(true)
 	
 func on_disconnected():
+	if $character.entity_id:
+		disconnected_ids.append($character.entity_id)
 	self.set_physics_process(false)
 	$NetManager.disconnect_from_host()
 	$NetManager.connect_to_url(HOST)
@@ -53,24 +57,33 @@ func process_server_messages():
 					for input in $character.pending_inputs:
 						$character.apply_input(input)
 				else:
+					
+					if disconnected_ids.has(entity_id):
+						continue
+						
+					var timestamp = OS.get_ticks_msec()
 					if not entities.has(entity_id):
 						var entity = entity_obj.instance()
 						entities[entity_id] = entity
+						entities[entity_id].position = entity_state.position
 						entity.entity_id = entity_id
 						add_child(entity)
 					
-					entities[entity_id].position = entity_state.position
 					entities[entity_id].input_sequence_number = entity_state.last_processed_input
 					entities[entity_id].look_at(entity_state.look_at)
 					
-					#TODO set state for interpolation (step 2, not implemented yet)
-					#entities[entity_id].state_buffer.append(entity_state)
+					entities[entity_id].client_state_buffer.append(
+						[timestamp, entity_state.last_processed_input, entity_state.position]
+					)
 	$NetManager.receive_message_queue.clear()
 			
 	
 
 func interpolate_entities():
-	pass
+	var render_time:float = OS.get_ticks_msec() - INTERPOLATION_INTERVAL
+	for entity in entities.values():
+		entity.interpolate(render_time)
+	
 	
 func send_input_to_server(input: Types.EntityInput):
 	var obj = Types.serialize_entity_input(input)
@@ -85,17 +98,18 @@ func _physics_process(delta):
 #		# not connected yet
 		return	
 		
-	var input: Types.EntityInput = $character.process_inputs(delta);
-	if not ($character.input_sequence_number % 1000):
-		print(len($character.pending_inputs))
+	if is_multiplayer:		
+		interpolate_entities()
 		
+	var input: Types.EntityInput = $character.process_inputs(delta);
+	
+#	if not ($character.input_sequence_number % 1000):
+#		print(len($character.pending_inputs))
+#
 	if is_multiplayer:
 		send_input_to_server(input);
 		
 	$character.apply_input(input)
-
-	if is_multiplayer:		
-		interpolate_entities()
 		
 		
 		

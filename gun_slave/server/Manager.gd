@@ -2,6 +2,7 @@ extends Node
 
 export var PORT:int = 8080
 
+const MAX_NO_INPUT_COUNT = 50
 const UPDATE_RATE = 10
 const UPDATE_INTERVAL = 1.0 / UPDATE_RATE # ms
 var already_passed: float = 0.0
@@ -9,6 +10,8 @@ var already_passed: float = 0.0
 var entity_obj = preload("res://common/scene/character.tscn");
 
 var entities: Dictionary = {}
+var entities_2_last_processed_input: Dictionary = {}
+
 
 
 # Called when the node enters the scene tree for the first time.
@@ -41,13 +44,14 @@ func process_disconnected():
 # warning-ignore:return_value_discarded
 		var entity = entities[client_id]
 		entities.erase(client_id)
+# warning-ignore:return_value_discarded
+		entities_2_last_processed_input.erase(client_id)
 		remove_child(entity)
 		
 func process_world():
 	for data in $server.receive_message_queue:
 		var input: Types.EntityInput = Types.deserialize_entity_input(data)
 		entities[input.entity_id].apply_input(input)
-		entities[input.entity_id].input_sequence_number = input.input_sequence_number
 		
 	$server.receive_message_queue.clear()
 	
@@ -60,12 +64,27 @@ func get_world_state()->Dictionary:
 		entity_state.last_processed_input = entity.input_sequence_number
 		entity_state.look_at = entity.looking_at
 		world_state.entity_states.append(Types.serialize_entity_state(entity_state))
+		
+		var e_last_input = entities_2_last_processed_input.get(entity.entity_id)
+		if not e_last_input or e_last_input != entity_state.last_processed_input:
+			entities_2_last_processed_input[entity.entity_id] = entity_state.last_processed_input
+			entity.no_input_counter = 0
+		else:
+			entity.no_input_counter += 1
+			if entity.no_input_counter > MAX_NO_INPUT_COUNT:
+				$server._disconnect_client(entity.entity_id)
+			
 	return Types.serialize_world_state(world_state)
 	
 
 func _physics_process(delta):
 	$server.poll(delta)
 	if not $server._clients:
+		if entities.size():
+			for entity in entities.values():
+				self.remove_child(entity)
+			entities.clear()
+			entities_2_last_processed_input.clear()
 		return
 	already_passed += delta
 	if already_passed < UPDATE_INTERVAL:

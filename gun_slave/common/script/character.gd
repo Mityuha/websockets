@@ -2,6 +2,8 @@ extends KinematicBody2D
 
 class_name character
 
+const MAX_STATE_BUFFER_SIZE = 600
+
 var blood_obj = preload("res://common/scene/blood.tscn");
 
 export var is_player: bool = false;
@@ -10,13 +12,51 @@ var health: int = max_health;
 export var speed:float = 200.0
 export var velocity:Vector2 = Vector2.ZERO;
 
-
+var no_input_counter: int = 0
 var entity_id = null;
 var pending_inputs: Array = [] # for me
-var state_buffer: Array = [] # for other client entities
+
+# (input_number, position) tuples array
+var server_state_buffer: Array = [] # for other client entities
+
+# (timestamp, input_number, position) tuples array
+var client_state_buffer: Array = []
+var interpolation_input_from: int = 0
+var interpolation_input_to: int = 0
+var interpolation_percentage: float = 0.0
+
 var input_sequence_number: int = 0
 var world = null
 var looking_at: Vector2 = Vector2.ZERO
+
+
+func interpolate(render_time: float):
+	if client_state_buffer.size() < 2:
+		return
+	var last_interpolate_index = 1
+	
+	while client_state_buffer[last_interpolate_index][0] <= render_time:
+		last_interpolate_index += 1
+		if last_interpolate_index == client_state_buffer.size():
+			return
+			
+	var pos_from: Vector2 = client_state_buffer[last_interpolate_index-1][2]
+	var pos_to: Vector2 = client_state_buffer[last_interpolate_index][2]
+	var time_from: int = client_state_buffer[last_interpolate_index-1][0]
+	var time_to: int = client_state_buffer[last_interpolate_index][0] + 1
+	
+	self.interpolation_input_from = client_state_buffer[last_interpolate_index-1][1]
+	self.interpolation_input_to = client_state_buffer[last_interpolate_index][1]
+	
+	# just linear interpolate it
+	self.interpolation_percentage = (render_time - time_from) / (time_to - time_from)
+	self.position = pos_from + (pos_to - pos_from) * interpolation_percentage
+	client_state_buffer = client_state_buffer.slice(
+		last_interpolate_index-1, client_state_buffer.size()-1
+	)
+	#print(render_time)
+	#print(interpolation_percentage)
+	#print()
 
 
 func _ready():
@@ -63,6 +103,12 @@ func apply_input(input: Types.EntityInput):
 	self.look_at(input.look_at)
 # warning-ignore:return_value_discarded
 	move_and_slide(self.velocity)
+	if is_player:
+		return
+	self.input_sequence_number = input.input_sequence_number
+	server_state_buffer.append([self.input_sequence_number, self.position])
+	if (server_state_buffer.size() - 128) > MAX_STATE_BUFFER_SIZE:
+		server_state_buffer = server_state_buffer.slice(128, server_state_buffer.size()-1)
 	
 func _unhandled_input(_event):
 	if not is_player:
