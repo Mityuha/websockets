@@ -38,19 +38,25 @@ func process_connected():
 		var obj = Types.serialize_initial_state(init_state)
 		$server.send_data(obj, client_id)
 		
+func disconnect_client(client_id):
+	var entity = entities[client_id]
+# warning-ignore:return_value_discarded
+	entities_2_last_processed_input.erase(client_id)
+	remove_child(entity)
+# warning-ignore:return_value_discarded
+	entities.erase(client_id)
+		
 func process_disconnected():
 	while $server.disconnected_clients_queue:
 		var client_id = $server.disconnected_clients_queue.pop_back()
 # warning-ignore:return_value_discarded
-		var entity = entities[client_id]
-		entities.erase(client_id)
-# warning-ignore:return_value_discarded
-		entities_2_last_processed_input.erase(client_id)
-		remove_child(entity)
+		disconnect_client(client_id)
 		
 func process_world():
 	for data in $server.receive_message_queue:
 		var input: Types.EntityInput = Types.deserialize_entity_input(data)
+		if not entities.has(input.entity_id):
+			continue
 		entities[input.entity_id].apply_input(input)
 		
 	$server.receive_message_queue.clear()
@@ -81,10 +87,10 @@ func _physics_process(delta):
 	$server.poll(delta)
 	if not $server._clients:
 		if entities.size():
-			for entity in entities.values():
-				self.remove_child(entity)
+			process_disconnected()
+			for entity_id in entities:
+				disconnect_client(entity_id)
 			entities.clear()
-			entities_2_last_processed_input.clear()
 		return
 	already_passed += delta
 	if already_passed < UPDATE_INTERVAL:

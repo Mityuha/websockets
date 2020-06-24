@@ -9,11 +9,13 @@ var entities: Dictionary = {}
 var disconnected_ids: Array = []
 
 var entity_obj = preload("res://common/scene/character.tscn");
+onready var mutex = $NetManager.mutex
 
 func on_connected():
 	self.set_physics_process(true)
 	
 func on_disconnected():
+	var _lg = $NetManager.LockGuard.new(mutex)
 	if $character.entity_id:
 		disconnected_ids.append($character.entity_id)
 	self.set_physics_process(false)
@@ -25,16 +27,21 @@ func _ready():
 	if not is_multiplayer:
 		$character.entity_id = 0
 		return
+	
 	self.set_physics_process(false)
+	
 # warning-ignore:return_value_discarded
 	$NetManager.connect("connected", self, "on_connected")
 # warning-ignore:return_value_discarded
 	$NetManager.connect("disconnected", self, "on_disconnected")
 	$NetManager.connect_to_url(HOST)
+	$NetManager.poll_start()
 	
 func process_server_messages():
 	if not is_multiplayer:
 		return
+	
+	var _lg = $NetManager.LockGuard.new(mutex)
 	
 	for data in $NetManager.receive_message_queue:
 		var obj = dict2inst(data)
@@ -76,7 +83,7 @@ func process_server_messages():
 						[timestamp, entity_state.last_processed_input, entity_state.position]
 					)
 	$NetManager.receive_message_queue.clear()
-			
+	
 	
 
 func interpolate_entities():
@@ -86,6 +93,7 @@ func interpolate_entities():
 	
 	
 func send_input_to_server(input: Types.EntityInput):
+	var _lg = $NetManager.LockGuard.new(mutex)
 	var obj = Types.serialize_entity_input(input)
 	$NetManager.send_data(obj)
 	

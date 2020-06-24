@@ -19,7 +19,8 @@ func int_from_bytes(byte1:int, byte0:int)->int:
 	return res
 	
 func int_from_bytes2_array(bytes:Array)->int:
-	return int_from_bytes(bytes[0], bytes[1])
+	return int_from_bytes(bytes[0], bytes[1
+	])
 	
 func int_2_bytes(num:int, bytes_num=4)->PoolByteArray:
 	var res:PoolByteArray = PoolByteArray();
@@ -41,3 +42,23 @@ func decode_data(data: PoolByteArray):
 
 func _log(msg):
 	print(msg)
+	
+class LockGuard:
+	var _mutex
+	#var _from = "?"
+	func _init(mutex):
+		_mutex = mutex
+		_mutex.lock()
+#		var stack = get_stack()
+#		if stack:
+#			var frame = get_stack()[1]
+#			_from = "%30s:%-4d" % [frame.source.get_file(), frame.line] 
+#			print( _from, " acquired")
+#		else:
+#			print("acquired")
+	func _notification(what):
+		if what == NOTIFICATION_PREDELETE:
+			#print(_from, " releasing")
+			_mutex.unlock()
+
+

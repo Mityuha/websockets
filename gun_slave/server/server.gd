@@ -26,10 +26,14 @@ func _exit_tree():
 	_clients.clear()
 	_server.stop()
 		
+#func poll(_delta):
+#	while true:
+#		if not _server.is_listening():
+#			break
+#		_server.poll()
+		
 func poll(_delta):
-	while true:
-		if not _server.is_listening():
-			break
+	if _server.is_listening():
 		_server.poll()
 		
 func _client_close_request(id, code, reason):
