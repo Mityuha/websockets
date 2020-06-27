@@ -5,6 +5,8 @@ signal disconnected;
 
 var receive_message_queue: Array = []
 
+var is_multithread: bool = true
+
 
 var _client = WebSocketClient.new()
 var _write_mode = WebSocketPeer.WRITE_MODE_BINARY
@@ -16,6 +18,9 @@ var LockGuard = Utils.LockGuard
 		
 var mutex = Mutex.new()
 var thread: Thread
+
+func set_multithread(enable: bool):
+	self.is_multithread = enable
 
 
 func _init():
@@ -50,13 +55,16 @@ func _exit_tree():
 	_client.disconnect_from_host(1001, "Bye")
 	thread.wait_to_finish()
 
-#func _process(_delta):
-#	if _client.get_connection_status() == WebSocketClient.CONNECTION_DISCONNECTED:
-#		return
-#
-#	_client.poll()
-	
+func _process(_delta):
+	if _client.get_connection_status() == WebSocketClient.CONNECTION_DISCONNECTED:
+		return
+
+	_client.poll()
+
 func poll(_delta):
+	if not is_multithread:
+		return
+		
 	while true:
 		if to_exit:
 			break
@@ -68,7 +76,9 @@ func poll(_delta):
 		mutex.unlock()
 
 func _client_connected(_protocol=""):
-	var _lg = LockGuard.new(mutex)
+	if is_multithread:
+		var _lg = LockGuard.new(mutex)
+		
 	_client.get_peer(1).set_write_mode(_write_mode)
 	emit_signal("connected")
 
@@ -78,7 +88,9 @@ func _client_disconnected(clean=true):
 
 
 func _client_received(_p_id = 1):
-	var _lg = LockGuard.new(mutex)
+	if is_multithread:
+		var _lg = LockGuard.new(mutex)
+		
 	var data = null;
 	if _use_multiplayer:
 		#var peer_id = _client.get_packet_peer()
@@ -93,7 +105,9 @@ func _client_received(_p_id = 1):
 	receive_message_queue.push_back(data)	
 
 func connect_to_url(host, protocols=null, multiplayer=true):
-	var _lg = LockGuard.new(mutex)
+	if is_multithread:
+		var _lg = LockGuard.new(mutex)
+		
 	if not protocols:
 		protocols = PoolStringArray()
 	_use_multiplayer = multiplayer
@@ -102,11 +116,15 @@ func connect_to_url(host, protocols=null, multiplayer=true):
 	return _client.connect_to_url(host, protocols, multiplayer)
 
 func disconnect_from_host():
-	var _lg = LockGuard.new(mutex)
+	if is_multithread:
+		var _lg = LockGuard.new(mutex)
+		
 	_client.disconnect_from_host(1000, "Bye")
 
 func send_data(data, dest=WebSocketClient.TARGET_PEER_SERVER):
-	var _lg = LockGuard.new(mutex)
+	if is_multithread:
+		var _lg = LockGuard.new(mutex)
+		
 	if _client.get_connection_status() == WebSocketClient.CONNECTION_DISCONNECTED:
 		emit_signal("disconnected")
 		return

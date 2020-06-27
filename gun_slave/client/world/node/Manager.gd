@@ -3,6 +3,7 @@ extends Node
 
 export var HOST: String = "ws://localhost:8080/"
 const is_multiplayer: bool = true
+const is_multithread: bool = false
 const INTERPOLATION_INTERVAL:float = 1.0 / 10; #ms
 
 var entities: Dictionary = {}
@@ -15,19 +16,22 @@ func on_connected():
 	self.set_physics_process(true)
 	
 func on_disconnected():
-	var _lg = $NetManager.LockGuard.new(mutex)
+	if is_multithread:
+		var _lg = $NetManager.LockGuard.new(mutex)
+		
 	if $character.entity_id:
 		disconnected_ids.append($character.entity_id)
 	self.set_physics_process(false)
 	$NetManager.disconnect_from_host()
 	$NetManager.connect_to_url(HOST)
+	
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
 	if not is_multiplayer:
 		$character.entity_id = 0
 		return
-	
+		
 	self.set_physics_process(false)
 	
 # warning-ignore:return_value_discarded
@@ -35,13 +39,21 @@ func _ready():
 # warning-ignore:return_value_discarded
 	$NetManager.connect("disconnected", self, "on_disconnected")
 	$NetManager.connect_to_url(HOST)
-	$NetManager.poll_start()
+	
+	$NetManager.set_process(!is_multithread)
+	$NetManager.set_multithread(is_multithread)
+	
+	if is_multithread:
+		$NetManager.poll_start()
+		
+	
 	
 func process_server_messages():
 	if not is_multiplayer:
 		return
 	
-	var _lg = $NetManager.LockGuard.new(mutex)
+	if is_multithread:
+		var _lg = $NetManager.LockGuard.new(mutex)
 	
 	for data in $NetManager.receive_message_queue:
 		var obj = dict2inst(data)
@@ -93,7 +105,9 @@ func interpolate_entities():
 	
 	
 func send_input_to_server(input: Types.EntityInput):
-	var _lg = $NetManager.LockGuard.new(mutex)
+	if is_multithread:
+		var _lg = $NetManager.LockGuard.new(mutex)
+		
 	var obj = Types.serialize_entity_input(input)
 	$NetManager.send_data(obj)
 	
