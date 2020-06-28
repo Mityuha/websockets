@@ -134,3 +134,5 @@ dmypy.json
 /.import
 *.import
 *.tres
+gun_slave/client/common
+gun_slave/server/common
