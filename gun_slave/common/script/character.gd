@@ -17,7 +17,7 @@ var pending_inputs: Array = [] # for me
 
 # (input_number, position) tuples array
 var server_state_buffer: Array = [] # for other client entities
-const SERVER_STATE_BUFFER_MAX_SIZE: int = 8192
+const SERVER_STATE_BUFFER_MAX_SIZE: int = 2048
 
 # (timestamp, input_number, position) tuples array
 var client_state_buffer: Array = []
@@ -126,6 +126,13 @@ func process_inputs(delta)->Types.EntityInput:
 	
 	
 func apply_input(input: Types.EntityInput):
+	
+	if not is_player:
+		if not self.is_visible():
+			if self.health <= 0:
+				return
+			self.show()
+	
 	if input.trigger and use_animation:
 		$weapon.shoot(input.shot_entity_id != null)
 		input.trigger = false
@@ -145,6 +152,7 @@ func apply_input(input: Types.EntityInput):
 	move_and_slide(self.velocity)
 	if is_player:
 		return
+		
 	self.input_sequence_number = input.input_sequence_number
 	server_state_buffer.append([self.input_sequence_number, self.position])
 	if (server_state_buffer.size() - 128) > SERVER_STATE_BUFFER_MAX_SIZE:
@@ -195,6 +203,8 @@ func hit(damage:int)->void:
 		return
 		
 	blood_animation()
+	if self.health <= 0:
+		self.hide()
 		
 func blood_animation():
 	var blood = blood_obj.instance();

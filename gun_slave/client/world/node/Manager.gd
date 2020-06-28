@@ -113,12 +113,13 @@ func process_server_messages():
 					processed_entities.append(entity_id)
 					entities[entity_id].no_input_counter = 0
 					
-	for entity_id in entities.duplicate():
-		
-		if not processed_entities.has(entity_id):
-			entities[entity_id].no_input_counter += 1
-			if entities[entity_id].no_input_counter > 100:
-				remove_entity(entity_id)
+	# TODO: more elegant
+#	for entity_id in entities.duplicate():
+#
+#		if not processed_entities.has(entity_id):
+#			entities[entity_id].no_input_counter += 1
+#			if entities[entity_id].no_input_counter > 100:
+#				remove_entity(entity_id)
 				
 	
 	
