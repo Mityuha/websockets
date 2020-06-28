@@ -2,7 +2,7 @@ extends Node
 
 
 export var HOST: String = "ws://localhost:8080/"
-const is_multiplayer: bool = true
+const is_multiplayer: bool = false
 const is_multithread: bool = false
 const INTERPOLATION_INTERVAL:float = 1.0 / 10; #ms
 
@@ -28,10 +28,12 @@ func on_disconnected():
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
+	$character.set_animation(false)		
+	#$character2.set_animation(false)
 	if not is_multiplayer:
 		$character.entity_id = 0
 		return
-		
+
 	self.set_physics_process(false)
 	
 # warning-ignore:return_value_discarded
@@ -75,9 +77,17 @@ func process_server_messages():
 					# print("applying ", len($character.pending_inputs), " pending inputs")
 					for input in $character.pending_inputs:
 						$character.apply_input(input)
+					$character.apply_state(entity_state, 0)
 				else:
 					
 					if disconnected_ids.has(entity_id):
+						continue
+						
+					if entity_state.last_processed_input == -1:
+						# disconnected
+						remove_child(entities[entity_id])
+# warning-ignore:return_value_discarded
+						entities.erase(entity_id)
 						continue
 						
 					var timestamp = OS.get_ticks_msec()
@@ -88,12 +98,8 @@ func process_server_messages():
 						entity.entity_id = entity_id
 						add_child(entity)
 					
-					entities[entity_id].input_sequence_number = entity_state.last_processed_input
-					entities[entity_id].look_at(entity_state.look_at)
+					entities[entity_id].apply_state(entity_state)
 					
-					entities[entity_id].client_state_buffer.append(
-						[timestamp, entity_state.last_processed_input, entity_state.position]
-					)
 	$NetManager.receive_message_queue.clear()
 	
 	
@@ -125,13 +131,23 @@ func _physics_process(delta):
 		
 	var input: Types.EntityInput = $character.process_inputs(delta);
 	
+	if is_multiplayer and input.trigger:
+		pass
+	
 #	if not ($character.input_sequence_number % 1000):
 #		print(len($character.pending_inputs))
 #
 	if is_multiplayer:
 		send_input_to_server(input);
 		
-	$character.apply_input(input)
+	apply_input(input)
 		
+func apply_input(input: Types.EntityInput):
+	$character.apply_input(input)
+	
+	if not is_multiplayer and input.trigger:
+		var entity_shot = $character.get_node("weapon").get_weapon_target()
+		if entity_shot is character:
+			$character.hit_enemy(entity_shot)
 		
 		

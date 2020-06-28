@@ -7,8 +7,9 @@ const MAX_STATE_BUFFER_SIZE = 600
 var blood_obj = preload("res://common/scene/blood.tscn");
 
 export var is_player: bool = false;
-export var max_health: int = 100;
-var health: int = max_health;
+var use_animation: bool = true
+export var MAX_HEALTH: int = 100;
+var health: int = MAX_HEALTH;
 export var speed:float = 200.0
 export var velocity:Vector2 = Vector2.ZERO;
 
@@ -28,6 +29,11 @@ var interpolation_percentage: float = 0.0
 var input_sequence_number: int = 0
 var world = null
 var looking_at: Vector2 = Vector2.ZERO
+
+
+func set_animation(enable: bool):
+	use_animation = enable
+	$weapon.use_animation = enable
 
 
 func interpolate(render_time: float):
@@ -61,8 +67,7 @@ func interpolate(render_time: float):
 
 func _ready():
 	$camera.current = self.is_player
-	if is_player:
-		self.world = get_parent().get_parent()
+	self.world = get_parent().get_parent()
 	set_physics_process(self.is_player)
 	
 func process_inputs(delta)->Types.EntityInput:
@@ -81,6 +86,16 @@ func process_inputs(delta)->Types.EntityInput:
 		input.down = true
 	if Input.is_action_pressed('ui_up'):
 		input.up = true
+	if Input.is_action_pressed("click"):
+		var now = OS.get_ticks_msec()
+		var can_trigger = (now-$weapon.last_touch_time) > $weapon.MAX_FIRE_INTERVAL
+		if can_trigger:
+			input.trigger = true
+			var target_entity: character = $weapon.get_weapon_target()
+			if target_entity:
+				input.shot_entity_id = target_entity.entity_id
+				input.shot_entity_interpolation_percentage = target_entity.interpolation_percentage
+			$weapon.last_touch_time = now
 		
 	input.entity_id = self.entity_id
 	input.input_sequence_number = self.input_sequence_number
@@ -93,6 +108,9 @@ func process_inputs(delta)->Types.EntityInput:
 	
 	
 func apply_input(input: Types.EntityInput):
+	if input.trigger and use_animation:
+		$weapon.shoot(input.shot_entity_id != null)
+		
 	self.velocity = Vector2.ZERO
 	self.velocity.x += int(input.right)
 	self.velocity.x -= int(input.left)
@@ -109,6 +127,25 @@ func apply_input(input: Types.EntityInput):
 	server_state_buffer.append([self.input_sequence_number, self.position])
 	if (server_state_buffer.size() - 128) > MAX_STATE_BUFFER_SIZE:
 		server_state_buffer = server_state_buffer.slice(128, server_state_buffer.size()-1)
+
+
+func apply_state(state: Types.EntityState, timestamp: int):
+	input_sequence_number = state.last_processed_input
+	self.look_at(state.look_at)
+	
+	if not is_player:				
+		client_state_buffer.append(
+			[timestamp, state.last_processed_input, state.position]
+		)
+	
+	if state.health != health:
+		if (state.health < health) and use_animation:
+			blood_animation()
+		health = state.health
+		
+	if not is_player and state.is_triggered:
+		$weapon.shoot(false)
+	
 	
 func _unhandled_input(_event):
 	if not is_player:
@@ -123,15 +160,22 @@ func _unhandled_input(_event):
 			$camera.zoom.y -= 0.1;
 	
 
+func hit_enemy(enemy: character):
+	return enemy.hit($weapon.damage)
+
 func hit(damage:int)->void:
-	# TODO: To remove from it
 	self.health -= damage;
+	if health <= 0:
+		self.position.x += 100
+		self.health = MAX_HEALTH
+	
+	if not use_animation:
+		return
+		
+	blood_animation()
+		
+func blood_animation():
 	var blood = blood_obj.instance();
 	blood.global_position = self.global_position+Vector2(randi()%20-10,randi()%20-10);
-	if not self.world:
-		# does not work on other entities
-		return
-	var effect = self.world.get_node("effect")
-	if effect:
-		effect.add_child(blood);
+	world.get_node("effect").add_child(blood);
 

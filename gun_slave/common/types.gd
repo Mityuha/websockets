@@ -17,7 +17,8 @@ class EntityInput:
 	var trigger: bool = false
 	var press_time: float
 	var look_at: Vector2
-	# var interpolation_percent: float = 0.0
+	var shot_entity_id = null
+	var shot_entity_interpolation_percentage: float = 0.0
 	
 	
 class InitialState:
@@ -32,6 +33,7 @@ class EntityState:
 	var position: Vector2
 	var look_at: Vector2
 	var is_triggered: bool
+	var health: int
 	
 		
 class WorldState:
