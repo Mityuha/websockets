@@ -36,4 +36,4 @@ func shoot(has_hit: bool)->void:
 		var trace = trace_obj.instance();
 		trace.init(target_pos, $bullet_point.global_position);
 		owner.world.get_node("effect").add_child(trace);
-		$weapon_sound.play();
+		#$weapon_sound.play();
