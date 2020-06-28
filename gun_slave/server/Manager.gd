@@ -93,6 +93,7 @@ func process_trigger(input: Types.EntityInput):
 	)
 	
 	if (expected_position - input.shot_entity_position) > Vector2(10, 10):
+		#print("expected: ", expected_position, " got: ", input.shot_entity_position)
 		return
 		
 	entities[input.entity_id].hit_enemy(shot_entity)

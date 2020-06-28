@@ -44,8 +44,12 @@ func set_animation(enable: bool):
 func calculate_position(input_from: int, input_to: int, input_interpolation_percentage: float):
 	var index_from = input_from - server_state_buffer[0][0]
 	var index_to = index_from + (input_to - input_from)
+	
 	assert(index_from >= 0)
 	assert((index_to - index_from) == (input_to - input_from))
+	assert(input_from == server_state_buffer[index_from][0])
+	assert(input_to == server_state_buffer[index_to][0])
+	
 	var pos_from = server_state_buffer[index_from][1]
 	var pos_to = server_state_buffer[index_to][1]
 	return pos_from + (pos_to - pos_from) * input_interpolation_percentage
@@ -124,14 +128,7 @@ func process_inputs(delta)->Types.EntityInput:
 	
 	return input
 	
-	
 func apply_input(input: Types.EntityInput):
-	
-	if not is_player:
-		if not self.is_visible():
-			if self.health <= 0:
-				return
-			self.show()
 	
 	if input.trigger and use_animation:
 		$weapon.shoot(input.shot_entity_id != null)
@@ -154,26 +151,32 @@ func apply_input(input: Types.EntityInput):
 		return
 		
 	self.input_sequence_number = input.input_sequence_number
-	server_state_buffer.append([self.input_sequence_number, self.position])
+	
+
+	server_state_buffer.append([input.input_sequence_number, self.position])
 	if (server_state_buffer.size() - 128) > SERVER_STATE_BUFFER_MAX_SIZE:
 		server_state_buffer = server_state_buffer.slice(128, server_state_buffer.size()-1)
+		
+func apply_health(new_health: int):
+	if new_health == health:
+		return
+	if (new_health < health) and use_animation:
+		blood_animation()
+	health = new_health
 
 
-func apply_state(state: Types.EntityState, timestamp: int):
-	input_sequence_number = state.last_processed_input
+func apply_entity_state(state: Types.EntityState, timestamp: int):
+	assert(not is_player)
 	self.look_at(state.look_at)
 	
-	if not is_player:				
-		client_state_buffer.append(
-			[timestamp, state.last_processed_input, state.position]
-		)
+	self.input_sequence_number = state.last_processed_input
+	client_state_buffer.append(
+		[timestamp, state.last_processed_input, state.position]
+	)
 	
-	if state.health != health:
-		if (state.health < health) and use_animation:
-			blood_animation()
-		health = state.health
+	apply_health(state.health)
 		
-	if not is_player and state.is_triggered:
+	if state.is_triggered:
 		$weapon.shoot(false)
 	
 	
@@ -203,8 +206,8 @@ func hit(damage:int)->void:
 		return
 		
 	blood_animation()
-	if self.health <= 0:
-		self.hide()
+#	if self.health <= 0:
+#		self.hide()
 		
 func blood_animation():
 	var blood = blood_obj.instance();

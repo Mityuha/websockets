@@ -90,7 +90,7 @@ func process_server_messages():
 					# print("applying ", len($character.pending_inputs), " pending inputs")
 					for input in $character.pending_inputs:
 						$character.apply_input(input)
-					$character.apply_state(entity_state, 0)
+					$character.apply_health(entity_state.health)
 				else:
 					
 					if disconnected_ids.has(entity_id):
@@ -102,16 +102,19 @@ func process_server_messages():
 						continue
 						
 					var timestamp = OS.get_ticks_msec()
-					if not entities.has(entity_id):
-						var entity = entity_obj.instance()
-						entities[entity_id] = entity
-						entities[entity_id].position = entity_state.position
+					
+					var entity: character = entities.get(entity_id)
+					
+					if not entity:
+						entity = entity_obj.instance()
+						entity.position = entity_state.position
 						entity.entity_id = entity_id
+						entities[entity_id] = entity
 						add_child(entity)
 					
-					entities[entity_id].apply_state(entity_state, timestamp)
+					entity.apply_entity_state(entity_state, timestamp)
 					processed_entities.append(entity_id)
-					entities[entity_id].no_input_counter = 0
+					entity.no_input_counter = 0
 					
 	# TODO: more elegant
 #	for entity_id in entities.duplicate():
