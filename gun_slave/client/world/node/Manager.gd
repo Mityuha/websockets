@@ -2,7 +2,7 @@ extends Node
 
 
 export var HOST: String = "ws://localhost:8080/"
-const is_multiplayer: bool = false
+const is_multiplayer: bool = true
 const is_multithread: bool = false
 const INTERPOLATION_INTERVAL:float = 1.0 / 10; #ms
 
@@ -11,6 +11,7 @@ var disconnected_ids: Array = []
 
 var entity_obj = preload("res://common/scene/character.tscn");
 onready var mutex = $NetManager.mutex
+onready var receive_message_queue_mutex = $NetManager.receive_message_queue_mutex
 
 func on_connected():
 	self.set_physics_process(true)
@@ -28,7 +29,7 @@ func on_disconnected():
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
-	$character.set_animation(false)		
+	#$character.set_animation(false)		
 	#$character2.set_animation(false)
 	if not is_multiplayer:
 		$character.entity_id = 0
@@ -50,14 +51,25 @@ func _ready():
 		
 	
 	
+func remove_entity(entity_id):
+	var entity = entities.get(entity_id)
+	if entities.erase(entity_id):
+		remove_child(entity)
+	
 func process_server_messages():
 	if not is_multiplayer:
 		return
 	
 	if is_multithread:
-		var _lg = $NetManager.LockGuard.new(mutex)
+		receive_message_queue_mutex.lock()
+	var message_queue_copy = $NetManager.receive_message_queue.duplicate()
+	$NetManager.receive_message_queue.clear()
+	if is_multithread:
+		receive_message_queue_mutex.unlock()
 	
-	for data in $NetManager.receive_message_queue:
+	var processed_entities: Array = []
+	
+	for data in message_queue_copy:
 		var obj = dict2inst(data)
 		if obj.get("room") != null:
 			$character.entity_id = obj.entity_id
@@ -66,6 +78,7 @@ func process_server_messages():
 			var state: Types.WorldState = obj
 			for entity_state_obj in state.entity_states:
 				var entity_state = Types.deserialize_entity_state(entity_state_obj)
+					
 				var entity_id = entity_state.entity_id
 				if entity_id == $character.entity_id:
 					$character.position = entity_state.position
@@ -85,9 +98,7 @@ func process_server_messages():
 						
 					if entity_state.last_processed_input == -1:
 						# disconnected
-						remove_child(entities[entity_id])
-# warning-ignore:return_value_discarded
-						entities.erase(entity_id)
+						remove_entity(entity_id)
 						continue
 						
 					var timestamp = OS.get_ticks_msec()
@@ -98,9 +109,17 @@ func process_server_messages():
 						entity.entity_id = entity_id
 						add_child(entity)
 					
-					entities[entity_id].apply_state(entity_state)
+					entities[entity_id].apply_state(entity_state, timestamp)
+					processed_entities.append(entity_id)
+					entities[entity_id].no_input_counter = 0
 					
-	$NetManager.receive_message_queue.clear()
+	for entity_id in entities.duplicate():
+		
+		if not processed_entities.has(entity_id):
+			entities[entity_id].no_input_counter += 1
+			if entities[entity_id].no_input_counter > 100:
+				remove_entity(entity_id)
+				
 	
 	
 
@@ -143,11 +162,10 @@ func _physics_process(delta):
 	apply_input(input)
 		
 func apply_input(input: Types.EntityInput):
-	$character.apply_input(input)
-	
 	if not is_multiplayer and input.trigger:
 		var entity_shot = $character.get_node("weapon").get_weapon_target()
 		if entity_shot is character:
 			$character.hit_enemy(entity_shot)
+	$character.apply_input(input)
 		
 		

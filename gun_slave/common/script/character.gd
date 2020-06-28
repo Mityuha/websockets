@@ -2,8 +2,6 @@ extends KinematicBody2D
 
 class_name character
 
-const MAX_STATE_BUFFER_SIZE = 600
-
 var blood_obj = preload("res://common/scene/blood.tscn");
 
 export var is_player: bool = false;
@@ -19,6 +17,7 @@ var pending_inputs: Array = [] # for me
 
 # (input_number, position) tuples array
 var server_state_buffer: Array = [] # for other client entities
+const SERVER_STATE_BUFFER_MAX_SIZE: int = 8192
 
 # (timestamp, input_number, position) tuples array
 var client_state_buffer: Array = []
@@ -29,11 +28,28 @@ var interpolation_percentage: float = 0.0
 var input_sequence_number: int = 0
 var world = null
 var looking_at: Vector2 = Vector2.ZERO
+var _triggered_times: int = 0
+
+func reset_triggered_times():
+	"""return triggered times"""
+	var res = _triggered_times
+	_triggered_times = 0
+	return res
 
 
 func set_animation(enable: bool):
 	use_animation = enable
 	$weapon.use_animation = enable
+
+func calculate_position(input_from: int, input_to: int, input_interpolation_percentage: float):
+	var index_from = input_from - server_state_buffer[0][0]
+	var index_to = index_from + (input_to - input_from)
+	assert(index_from >= 0)
+	assert((index_to - index_from) == (input_to - input_from))
+	var pos_from = server_state_buffer[index_from][1]
+	var pos_to = server_state_buffer[index_to][1]
+	return pos_from + (pos_to - pos_from) * input_interpolation_percentage
+	
 
 
 func interpolate(render_time: float):
@@ -94,7 +110,10 @@ func process_inputs(delta)->Types.EntityInput:
 			var target_entity: character = $weapon.get_weapon_target()
 			if target_entity:
 				input.shot_entity_id = target_entity.entity_id
+				input.shot_entity_input_from = target_entity.interpolation_input_from
+				input.shot_entity_input_to = target_entity.interpolation_input_to
 				input.shot_entity_interpolation_percentage = target_entity.interpolation_percentage
+				input.shot_entity_position = target_entity.position
 			$weapon.last_touch_time = now
 		
 	input.entity_id = self.entity_id
@@ -106,10 +125,13 @@ func process_inputs(delta)->Types.EntityInput:
 	return input
 	
 	
-	
 func apply_input(input: Types.EntityInput):
 	if input.trigger and use_animation:
 		$weapon.shoot(input.shot_entity_id != null)
+		input.trigger = false
+		
+	if input.trigger and not is_player:
+		_triggered_times += 1
 		
 	self.velocity = Vector2.ZERO
 	self.velocity.x += int(input.right)
@@ -125,7 +147,7 @@ func apply_input(input: Types.EntityInput):
 		return
 	self.input_sequence_number = input.input_sequence_number
 	server_state_buffer.append([self.input_sequence_number, self.position])
-	if (server_state_buffer.size() - 128) > MAX_STATE_BUFFER_SIZE:
+	if (server_state_buffer.size() - 128) > SERVER_STATE_BUFFER_MAX_SIZE:
 		server_state_buffer = server_state_buffer.slice(128, server_state_buffer.size()-1)
 
 
@@ -165,10 +187,10 @@ func hit_enemy(enemy: character):
 
 func hit(damage:int)->void:
 	self.health -= damage;
-	if health <= 0:
-		self.position.x += 100
-		self.health = MAX_HEALTH
-	
+#	if health <= 0:
+#		self.position.x += 100
+#		self.health = MAX_HEALTH
+#
 	if not use_animation:
 		return
 		

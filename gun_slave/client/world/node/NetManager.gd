@@ -17,6 +17,7 @@ var to_exit: bool = false
 var LockGuard = Utils.LockGuard
 		
 var mutex = Mutex.new()
+var receive_message_queue_mutex = Mutex.new()
 var thread: Thread
 
 func set_multithread(enable: bool):
@@ -102,7 +103,9 @@ func _client_received(_p_id = 1):
 		data = Utils.decode_data(packet)
 		#Utils._log("Received data. BINARY: %s" % [Utils.decode_data(packet)])
 		
+	receive_message_queue_mutex.lock()
 	receive_message_queue.push_back(data)	
+	receive_message_queue_mutex.unlock()
 
 func connect_to_url(host, protocols=null, multiplayer=true):
 	if is_multithread:

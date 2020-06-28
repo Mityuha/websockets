@@ -1,6 +1,6 @@
 extends Node2D
 
-var trace_obj = preload("res://world/node/trace.tscn");
+var trace_obj = preload("res://common/scene/trace.tscn")
 const MAX_FIRE_RATE: int = 5
 const MAX_FIRE_INTERVAL: float = 1000.0 / MAX_FIRE_RATE;
 var last_touch_time = 0;

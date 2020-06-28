@@ -18,7 +18,10 @@ class EntityInput:
 	var press_time: float
 	var look_at: Vector2
 	var shot_entity_id = null
-	var shot_entity_interpolation_percentage: float = 0.0
+	var shot_entity_input_from = null
+	var shot_entity_input_to = null
+	var shot_entity_interpolation_percentage = null
+	var shot_entity_position = null
 	
 	
 class InitialState:
@@ -34,6 +37,9 @@ class EntityState:
 	var look_at: Vector2
 	var is_triggered: bool
 	var health: int
+	
+#class DeletedEntity:
+#	var deleted_entity_id: int
 	
 		
 class WorldState:
