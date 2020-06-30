@@ -1,0 +1,39 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=4
+
+_global_script_classes=[ {
+"base": "KinematicBody2D",
+"class": "bullet",
+"language": "GDScript",
+"path": "res://common/script/bullet.gd"
+}, {
+"base": "KinematicBody2D",
+"class": "character",
+"language": "GDScript",
+"path": "res://common/script/character.gd"
+} ]
+_global_script_class_icons={
+"bullet": "",
+"character": ""
+}
+
+[application]
+
+config/name="Dummy Controller"
+config/icon="res://icon.png"
+
+[autoload]
+
+Types="*res://common/types.gd"
+Utils="*res://common/utils.gd"
+
+[rendering]
+
+environment/default_environment="res://default_env.tres"

@@ -136,3 +136,4 @@ dmypy.json
 *.tres
 gun_slave/client/common
 gun_slave/server/common
+gun_slave/dummy_controller/common
