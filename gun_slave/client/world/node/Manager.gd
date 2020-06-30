@@ -3,7 +3,7 @@ extends Node
 
 export var HOST: String = "ws://localhost:8080/"
 const is_multiplayer: bool = true
-const is_multithread: bool = false
+const is_multithread: bool = true
 const INTERPOLATION_INTERVAL:float = 1.0 / 10; #ms
 
 var entities: Dictionary = {}
@@ -69,7 +69,10 @@ func process_server_messages():
 	
 	var processed_entities: Array = []
 	
-	for data in message_queue_copy:
+	for time_data_list in message_queue_copy:
+		var message_time = time_data_list[0]
+		var data = time_data_list[1]
+		
 		var obj = dict2inst(data)
 		if obj.get("room") != null:
 			$character.entity_id = obj.entity_id
@@ -100,8 +103,6 @@ func process_server_messages():
 						# disconnected
 						remove_entity(entity_id)
 						continue
-						
-					var timestamp = OS.get_ticks_msec()
 					
 					var entity: character = entities.get(entity_id)
 					
@@ -112,7 +113,7 @@ func process_server_messages():
 						entities[entity_id] = entity
 						add_child(entity)
 					
-					entity.apply_entity_state(entity_state, timestamp)
+					entity.apply_entity_state(entity_state, message_time)
 					processed_entities.append(entity_id)
 					entity.no_input_counter = 0
 					

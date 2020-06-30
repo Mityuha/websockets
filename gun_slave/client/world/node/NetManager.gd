@@ -70,7 +70,6 @@ func poll(_delta):
 		if to_exit:
 			break
 		if _client.get_connection_status() == WebSocketClient.CONNECTION_DISCONNECTED:
-			#print("continue")
 			continue
 		mutex.lock()
 		_client.poll()
@@ -88,23 +87,25 @@ func _client_disconnected(clean=true):
 	emit_signal("disconnected")
 
 
+#var times: Array = [0]
+#var deltas: Array = []
+
 func _client_received(_p_id = 1):
-	if is_multithread:
-		var _lg = LockGuard.new(mutex)
-		
-	var data = null;
-	if _use_multiplayer:
-		#var peer_id = _client.get_packet_peer()
-		var packet = _client.get_packet()
-		data = Utils.decode_data(packet)
-		#Utils._log("MPAPI: From %s Data: %s" % [str(peer_id), data])
-	else:
-		var packet = _client.get_peer(1).get_packet()
-		data = Utils.decode_data(packet)
-		#Utils._log("Received data. BINARY: %s" % [Utils.decode_data(packet)])
+	
+	var receive_time = OS.get_ticks_msec()
+#	deltas.append(t-times.back())
+#	if len(deltas) == 100:
+#		print(deltas)
+#		times.clear()
+#		deltas.clear()
+#	times.append(t)
+	
+	mutex.lock()
+	var data = Utils.decode_data(_client.get_packet())
+	mutex.unlock()
 		
 	receive_message_queue_mutex.lock()
-	receive_message_queue.push_back(data)	
+	receive_message_queue.push_back([receive_time, data])	
 	receive_message_queue_mutex.unlock()
 
 func connect_to_url(host, protocols=null, multiplayer=true):
