@@ -3,7 +3,7 @@ extends Node
 
 export var HOST: String = "ws://localhost:8080/"
 const is_multiplayer: bool = true
-const is_multithread: bool = false
+const is_multithread: bool = true
 const is_thread_interpolation: bool = false
 const INTERPOLATION_INTERVAL:float = 1.0 / 10; #ms
 
@@ -15,10 +15,17 @@ onready var mutex = $NetManager.mutex
 onready var receive_message_queue_mutex = $NetManager.receive_message_queue_mutex
 
 var interpolation_thread: Thread;
-var interpolation_thread_stopped: bool = false
+var is_interpolation_thread_stopped: bool = false
 
 func on_connected():
 	self.set_physics_process(true)
+	
+	if is_thread_interpolation:
+		is_interpolation_thread_stopped = false
+# warning-ignore:return_value_discarded
+		if interpolation_thread.is_active():
+			interpolation_thread.wait_to_finish()
+		interpolation_thread.start(self, "interpolate_entities_in_thread")
 	
 func on_disconnected():
 	if is_multithread:
@@ -33,16 +40,25 @@ func on_disconnected():
 	$NetManager.connect_to_url(HOST)
 	
 	if is_thread_interpolation:
-		interpolation_thread
+		is_interpolation_thread_stopped = true
+		
+func _exit_tree():
+	if is_thread_interpolation:
+		is_interpolation_thread_stopped = true
+		interpolation_thread.wait_to_finish()
 	
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
 	#$character.set_animation(false)		
 	#$character2.set_animation(false)
+	
 	if not is_multiplayer:
 		$character.entity_id = 0
 		return
+		
+	if is_thread_interpolation:
+		interpolation_thread = Thread.new()
 
 	self.set_physics_process(false)
 	
@@ -61,7 +77,6 @@ func _ready():
 		
 	$character.set_thread_interpolation(is_thread_interpolation)
 		
-	
 	
 func remove_entity(entity_id):
 	var entity = entities.get(entity_id)
@@ -138,9 +153,16 @@ func process_server_messages():
 #				remove_entity(entity_id)
 				
 	
-	
+func interpolate_entities_in_thread(_dummy=null):
+	while true:
+		if is_interpolation_thread_stopped:
+			break
+		for entity in entities.values():
+			var render_time:float = OS.get_ticks_msec() - INTERPOLATION_INTERVAL
+			entity.interpolate(render_time)
 
-func interpolate_entities():
+
+func interpolate_entities(_dummy=null):
 	var render_time:float = OS.get_ticks_msec() - INTERPOLATION_INTERVAL
 	for entity in entities.values():
 		entity.interpolate(render_time)
@@ -162,7 +184,7 @@ func _physics_process(delta):
 #		# not connected yet
 		return	
 		
-	if is_multiplayer:		
+	if is_multiplayer and not is_thread_interpolation:		
 		interpolate_entities()
 		
 	var input: Types.EntityInput = $character.process_inputs(delta);
