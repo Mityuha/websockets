@@ -1,17 +1,16 @@
 extends Node
 
 
-export var HOST: String = "ws://vscale.sofaxes.xyz:8080/"
-var entity_id: int
+export var HOST: String = "ws://localhost:8080/"
+var entity_id = null
 var input_sequence_number: int = 0
 
 func on_connected():
 	self.set_physics_process(true)
 	
 func on_disconnected():
-	if is_multithread:
-		var _lg = $NetManager.LockGuard.new(mutex)
-		
+	entity_id = null
+	input_sequence_number = 0
 	self.set_physics_process(false)
 	$NetManager.disconnect_from_host()
 	$NetManager.connect_to_url(HOST)
@@ -25,10 +24,13 @@ func _ready():
 	$NetManager.connect("connected", self, "on_connected")
 # warning-ignore:return_value_discarded
 	$NetManager.connect("disconnected", self, "on_disconnected")
-	$NetManager.connect_to_url(HOST)
 	
 	$NetManager.set_process(true)
 	$NetManager.set_multithread(false)
+	
+	$NetManager.connect_to_url(HOST)
+	
+	
 		
 	
 func send_input_to_server(input: Types.EntityInput):
@@ -40,7 +42,7 @@ func process_inputs(delta):
 	var input = Types.EntityInput.new();
 	input.press_time = delta
 		
-	input.look_at = get_global_mouse_position();
+	#input.look_at = get_global_mouse_position();
 	if Input.is_action_pressed('ui_right'):
 		input.right = true
 	if Input.is_action_pressed('ui_left'):
@@ -58,7 +60,21 @@ func process_inputs(delta):
 	
 	return input
 	
+func get_entity_id():
+	for time_data_list in $NetManager.receive_message_queue:
+		var _message_time = time_data_list[0]
+		var data = time_data_list[1]
+		
+		var obj = dict2inst(data)
+		if obj.get("room") != null:
+			entity_id = obj.entity_id
+			return
+	
 func _physics_process(delta):
+	
+	if not entity_id:
+		get_entity_id()
+		return
 		
 	var input: Types.EntityInput = process_inputs(delta);
 	send_input_to_server(input);

@@ -1,9 +1,9 @@
 extends Node
 
 
-export var HOST: String = "ws://vscale.sofaxes.xyz:8080/"
+export var HOST: String = "ws://localhost:8080/"
 const is_multiplayer: bool = true
-const is_multithread: bool = true
+const is_multithread: bool = false
 const INTERPOLATION_INTERVAL:float = 1.0 / 10; #ms
 
 var entities: Dictionary = {}

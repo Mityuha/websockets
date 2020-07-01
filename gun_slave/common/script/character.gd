@@ -64,6 +64,11 @@ func interpolate(render_time: float):
 	while client_state_buffer[last_interpolate_index][0] <= render_time:
 		last_interpolate_index += 1
 		if last_interpolate_index == client_state_buffer.size():
+			self.interpolation_input_from = client_state_buffer[last_interpolate_index-2][1]
+			self.interpolation_input_to = client_state_buffer[last_interpolate_index-1][1]
+			self.interpolation_percentage = 1.0
+			self.position = client_state_buffer[last_interpolate_index-1][2]
+			client_state_buffer.clear()
 			return
 			
 	var pos_from: Vector2 = client_state_buffer[last_interpolate_index-1][2]
