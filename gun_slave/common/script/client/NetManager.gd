@@ -54,7 +54,9 @@ func _peer_connected(id):
 func _exit_tree():
 	to_exit = true
 	_client.disconnect_from_host(1001, "Bye")
-	thread.wait_to_finish()
+	
+	if is_multithread:
+		thread.wait_to_finish()
 
 func _process(_delta):
 	if _client.get_connection_status() == WebSocketClient.CONNECTION_DISCONNECTED:

@@ -4,6 +4,7 @@ extends Node
 export var HOST: String = "ws://localhost:8080/"
 const is_multiplayer: bool = true
 const is_multithread: bool = false
+const is_thread_interpolation: bool = false
 const INTERPOLATION_INTERVAL:float = 1.0 / 10; #ms
 
 var entities: Dictionary = {}
@@ -12,6 +13,9 @@ var disconnected_ids: Array = []
 var entity_obj = preload("res://common/scene/character.tscn");
 onready var mutex = $NetManager.mutex
 onready var receive_message_queue_mutex = $NetManager.receive_message_queue_mutex
+
+var interpolation_thread: Thread;
+var interpolation_thread_stopped: bool = false
 
 func on_connected():
 	self.set_physics_process(true)
@@ -22,9 +26,14 @@ func on_disconnected():
 		
 	if $character.entity_id:
 		disconnected_ids.append($character.entity_id)
+		$character.input_sequence_number = 0
+		
 	self.set_physics_process(false)
 	$NetManager.disconnect_from_host()
 	$NetManager.connect_to_url(HOST)
+	
+	if is_thread_interpolation:
+		interpolation_thread
 	
 
 # Called when the node enters the scene tree for the first time.
@@ -41,13 +50,16 @@ func _ready():
 	$NetManager.connect("connected", self, "on_connected")
 # warning-ignore:return_value_discarded
 	$NetManager.connect("disconnected", self, "on_disconnected")
-	$NetManager.connect_to_url(HOST)
 	
 	$NetManager.set_process(!is_multithread)
 	$NetManager.set_multithread(is_multithread)
 	
+	$NetManager.connect_to_url(HOST)
+	
 	if is_multithread:
 		$NetManager.poll_start()
+		
+	$character.set_thread_interpolation(is_thread_interpolation)
 		
 	
 	

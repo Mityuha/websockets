@@ -21,6 +21,8 @@ const SERVER_STATE_BUFFER_MAX_SIZE: int = 2048
 
 # (timestamp, input_number, position) tuples array
 var client_state_buffer: Array = []
+var is_thread_interpolation: bool = false
+var client_state_buffer_mutex: Mutex = Mutex.new()
 var interpolation_input_from: int = 0
 var interpolation_input_to: int = 0
 var interpolation_percentage: float = 0.0
@@ -29,6 +31,10 @@ var input_sequence_number: int = 0
 var world = null
 var looking_at: Vector2 = Vector2.ZERO
 var _triggered_times: int = 0
+
+
+func set_thread_interpolation(enable: bool):
+	is_thread_interpolation = enable
 
 func reset_triggered_times():
 	"""return triggered times"""
