@@ -1,11 +1,12 @@
 extends Node
 
 
-export var HOST: String = "ws://localhost:8080/"
+export var HOST: String = "ws://vscale.sofaxes.xyz:8080/"
 var entity_id = null
 var input_sequence_number: int = 0
 
 func on_connected():
+	entity_id = $NetManager.get_network_unique_id()
 	self.set_physics_process(true)
 	
 func on_disconnected():
@@ -60,21 +61,7 @@ func process_inputs(delta):
 	
 	return input
 	
-func get_entity_id():
-	for time_data_list in $NetManager.receive_message_queue:
-		var _message_time = time_data_list[0]
-		var data = time_data_list[1]
-		
-		var obj = dict2inst(data)
-		if obj.get("room") != null:
-			entity_id = obj.entity_id
-			return
-	
 func _physics_process(delta):
-	
-	if not entity_id:
-		get_entity_id()
-		return
 		
 	var input: Types.EntityInput = process_inputs(delta);
 	send_input_to_server(input);

@@ -27,6 +27,7 @@ _global_script_class_icons={
 [application]
 
 config/name="Dummy Controller"
+run/main_scene="res://dummy.tscn"
 config/icon="res://icon.png"
 
 [autoload]

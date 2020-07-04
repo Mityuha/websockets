@@ -3,8 +3,6 @@ extends Node
 signal connected;
 signal disconnected;
 
-var receive_message_queue: Array = []
-
 var is_multithread: bool = true
 
 
@@ -16,7 +14,6 @@ var to_exit: bool = false
 var LockGuard = Utils.LockGuard
 		
 var mutex = Mutex.new()
-var receive_message_queue_mutex = Mutex.new()
 
 func set_multithread(enable: bool):
 	self.is_multithread = enable
@@ -34,9 +31,12 @@ func _init():
 	_client.connect("peer_connected", self, "_peer_connected")
 	_client.connect("connection_succeeded", self, "_client_connected", ["multiplayer_protocol"])
 	_client.connect("connection_failed", self, "_client_disconnected")
+
 	
 func get_network_unique_id():
 	var _lg = LockGuard.new(mutex)
+	if _client.get_connection_status() != WebSocketClient.CONNECTION_CONNECTED:
+		return 0
 	return _client.get_unique_id()
 
 
@@ -48,7 +48,7 @@ func _peer_connected(id):
 
 func _exit_tree():
 	to_exit = true
-	_client.disconnect_from_host(1001, "Bye")
+	disconnect_from_host()
 
 func _process(_delta):
 	if _client.get_connection_status() == WebSocketClient.CONNECTION_DISCONNECTED:
@@ -94,17 +94,17 @@ func get_packet()->PoolByteArray:
 	return _client.get_packet()
 	
 
-func _client_received(_p_id = 1):
-	assert(false)
-	var receive_time = OS.get_ticks_msec()
-	
-	mutex.lock()
-	var data = Utils.decode_data(_client.get_packet())
-	mutex.unlock()
-		
-	receive_message_queue_mutex.lock()
-	receive_message_queue.push_back([receive_time, data])	
-	receive_message_queue_mutex.unlock()
+#func _client_received(_p_id = 1):
+#	assert(false)
+#	var receive_time = OS.get_ticks_msec()
+#
+#	mutex.lock()
+#	var data = Utils.decode_data(_client.get_packet())
+#	mutex.unlock()
+#
+#	receive_message_queue_mutex.lock()
+#	receive_message_queue.push_back([receive_time, data])	
+#	receive_message_queue_mutex.unlock()
 
 func connect_to_url(host, protocols=null, multiplayer=true):
 	if is_multithread:

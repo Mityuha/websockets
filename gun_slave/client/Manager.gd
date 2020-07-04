@@ -1,10 +1,12 @@
 extends Node
 
 
-export var HOST: String = "ws://localhost:8080/"
+export var HOST: String = "ws://vscale.sofaxes.xyz:8080/"
 const is_multiplayer: bool = true
-const is_thread_interpolation: bool = false
+const is_thread_interpolation: bool = true
 const INTERPOLATION_INTERVAL_MSEC:float = 1000.0 / 10; #ms
+const INTERPOLATION_INC_STEP_MSEC:float = 5.0 #ms
+var INTERPOLATION_EXTRA_TIME_MSEC:float = 0.0 #ms
 
 var entities: Dictionary = {}
 var disconnected_ids: Array = []
@@ -41,24 +43,19 @@ func on_disconnected():
 		
 	self.set_physics_process(false)
 	$NetManager.disconnect_from_host()
-	$NetManager.connect_to_url(HOST)
+	#$NetManager.connect_to_url(HOST)
 	
 	if is_thread_interpolation:
 		is_interpolation_thread_stopped = true
-		interpolation_thread.wait_to_finish()
 		
 func _exit_tree():
 	if is_thread_interpolation:
 		is_interpolation_thread_stopped = true
 		interpolation_thread.wait_to_finish()
-		#interpolation_thread = Thread.new()
 	
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
-	#$character.set_animation(false)		
-	#$character2.set_animation(false)
-	
 	if not is_multiplayer:
 		$character.entity_id = 0
 		return
@@ -79,8 +76,6 @@ func _ready():
 	$NetManager.set_multithread(is_thread_interpolation)
 	
 	$NetManager.connect_to_url(HOST)
-		
-	$character.set_thread_interpolation(is_thread_interpolation)
 	
 	if is_thread_interpolation:
 		interpolation_thread.start(self, "interpolate_entities_in_thread")
@@ -105,6 +100,8 @@ func message_received(_peer_id=1):
 	
 	var data = Utils.decode_data($NetManager.get_packet())
 	var obj = dict2inst(data)
+	
+	var timestamp = OS.get_ticks_msec()
 
 	var world_state: Types.WorldState = obj
 	for entity_state_obj in world_state.entity_states:
@@ -128,7 +125,6 @@ func message_received(_peer_id=1):
 			continue
 		
 		if entities.has(entity_id):
-			var timestamp = OS.get_ticks_msec()
 			entities.get(entity_id).append_state(entity_state, timestamp)
 		else:
 			$character.set_state(entity_state)
@@ -178,6 +174,8 @@ func process_server_messages():
 	
 	for message in new_entity_messages_copy:
 		var entity_id = message.entity_id
+		if entities.has(entity_id):
+			continue
 		var entity = entity_obj.instance()
 		entity.position = message.position
 		entity.entity_id = entity_id
@@ -189,22 +187,33 @@ func process_server_messages():
 		
 	for entity in entities.values():
 		entity.apply_last_state()
-				
+	
+	
+		
+		
+func _interpolate_entities():
+	var render_time:float = OS.get_ticks_msec() - (
+		INTERPOLATION_INTERVAL_MSEC + INTERPOLATION_EXTRA_TIME_MSEC)
+		
+	var is_smooth: bool = true
+	for entity in entities.values():
+		is_smooth = entity.interpolate(render_time) and is_smooth
+		
+	if not is_smooth:
+		Utils._log("Interpolation extra time += %s" % INTERPOLATION_INC_STEP_MSEC)
+		INTERPOLATION_EXTRA_TIME_MSEC += INTERPOLATION_INC_STEP_MSEC
+	
 	
 func interpolate_entities_in_thread(_dummy=null):
 	while true:
 		if is_interpolation_thread_stopped:
 			break
 		$NetManager.poll2()
-		for entity in entities.values():
-			var render_time:float = OS.get_ticks_msec() - INTERPOLATION_INTERVAL_MSEC
-			entity.interpolate(render_time)
+		_interpolate_entities()
 
 
 func interpolate_entities(_dummy=null):
-	var render_time:float = OS.get_ticks_msec() - INTERPOLATION_INTERVAL_MSEC
-	for entity in entities.values():
-		entity.interpolate(render_time)
+	_interpolate_entities()
 	
 	
 func send_input_to_server(input: Types.EntityInput):

@@ -81,6 +81,7 @@ func process_disconnected():
 func process_trigger(input: Types.EntityInput):
 	if not input.shot_entity_id:
 		return
+		
 	if not entities.has(input.shot_entity_id):
 		return
 	
@@ -91,6 +92,9 @@ func process_trigger(input: Types.EntityInput):
 		input.shot_entity_input_to,
 		input.shot_entity_interpolation_percentage
 	)
+	
+	if not expected_position:
+		return
 	
 	if (expected_position - input.shot_entity_position) > Vector2(10, 10):
 		#print("expected: ", expected_position, " got: ", input.shot_entity_position)

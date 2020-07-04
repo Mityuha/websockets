@@ -50,6 +50,10 @@ func calculate_position(input_from: int, input_to: int, input_interpolation_perc
 	var index_from = input_from - server_state_buffer[0][0]
 	var index_to = index_from + (input_to - input_from)
 	
+	if index_from >= 0:
+		Utils._log("Entity %s index_from (%s) < 0. Is it cheat?" % [entity_id, index_from])
+		return
+		
 	assert(index_from >= 0)
 	assert((index_to - index_from) == (input_to - input_from))
 	assert(input_from == server_state_buffer[index_from][0])
@@ -65,12 +69,17 @@ func calculate_position(input_from: int, input_to: int, input_interpolation_perc
 #var deltas = []
 
 func interpolate(render_time: float):
+	"""
+		Return true if could interpolate
+		return false if took last entity position
+	"""
 	if client_state_buffer.size() < 2:
-		return
+		return true
+		
+	if render_time < client_state_buffer[0][0]:
+		return true
+		
 	var last_interpolate_index = 1
-	
-	var buffer_copy = null
-	
 #	deltas.append(render_time-times.back())
 #	if len(deltas) == 100:
 #		print(deltas)
@@ -79,51 +88,48 @@ func interpolate(render_time: float):
 #		deltas.clear()
 #	times.append(render_time)
 	
-#	if is_thread_interpolation:
-#		client_state_buffer_mutex.lock()
-#		buffer_copy = client_state_buffer.duplicate()
-#		client_state_buffer.clear()
-#		client_state_buffer_mutex.unlock()
-#	else:
-	buffer_copy = client_state_buffer
-	
-	while buffer_copy[last_interpolate_index][0] <= render_time:
+	while client_state_buffer[last_interpolate_index][0] <= render_time:
 		last_interpolate_index += 1
-		if last_interpolate_index == buffer_copy.size():
-			self.interpolation_input_from = buffer_copy[last_interpolate_index-2][1]
-			self.interpolation_input_to = buffer_copy[last_interpolate_index-1][1]
+		if last_interpolate_index == client_state_buffer.size():
+			self.interpolation_input_from = client_state_buffer[last_interpolate_index-2][1]
+			self.interpolation_input_to = client_state_buffer[last_interpolate_index-1][1]
 			self.interpolation_percentage = 1.0
-			self.position = buffer_copy[last_interpolate_index-1][2]
-			print("render_time: %s, last: %s, before last: %s" % [render_time, buffer_copy[last_interpolate_index-1][0], buffer_copy[last_interpolate_index-2][0]])
-			buffer_copy.clear()
-			return
+			self.position = client_state_buffer[last_interpolate_index-1][2]
+			client_state_buffer = [client_state_buffer.back()]
+			if render_time > client_state_buffer.back()[0]:
+				print("render_time: %s, last: %s" % [
+					render_time, 
+					client_state_buffer.back()[0]]
+				)
+				return false
+			return true
 			
-	var pos_from: Vector2 = buffer_copy[last_interpolate_index-1][2]
-	var pos_to: Vector2 = buffer_copy[last_interpolate_index][2]
-	var time_from: int = buffer_copy[last_interpolate_index-1][0]
-	var time_to: int = buffer_copy[last_interpolate_index][0] + 1
+			
+	#print(client_state_buffer.size(), " ", last_interpolate_index)
+	var pos_from: Vector2 = client_state_buffer[last_interpolate_index-1][2]
+	var pos_to: Vector2 = client_state_buffer[last_interpolate_index][2]
+	var time_from: int = client_state_buffer[last_interpolate_index-1][0]
+	var time_to: int = client_state_buffer[last_interpolate_index][0] + 1
 	
-	self.interpolation_input_from = buffer_copy[last_interpolate_index-1][1]
-	self.interpolation_input_to = buffer_copy[last_interpolate_index][1]
+	self.interpolation_input_from = client_state_buffer[last_interpolate_index-1][1]
+	self.interpolation_input_to = client_state_buffer[last_interpolate_index][1]
 	
 	# just linear interpolate it
 	self.interpolation_percentage = (render_time - time_from) / (time_to - time_from)
-	self.position = pos_from + (pos_to - pos_from) * interpolation_percentage
-	buffer_copy = buffer_copy.slice(
-		last_interpolate_index-1, buffer_copy.size()-1
-	)
+	if not (self.interpolation_percentage <= 1.0 and self.interpolation_percentage >= 0.0):
+		print(self.interpolation_percentage, " ", 
+			render_time, " ", time_from, " ", time_to, " ",
+			last_interpolate_index, " ", client_state_buffer[last_interpolate_index], " ", 
+			client_state_buffer[last_interpolate_index-1] )
+		print(client_state_buffer)
+		return
 	
-#	if is_thread_interpolation:
-#		client_state_buffer_mutex.lock()
-#		buffer_copy += client_state_buffer
-#		client_state_buffer = buffer_copy
-#		client_state_buffer_mutex.unlock()
-		
-		
-	#print(render_time)
-	#print(interpolation_percentage)
-	#print()
-
+	self.position = pos_from + (pos_to - pos_from) * interpolation_percentage
+	client_state_buffer = client_state_buffer.slice(
+		last_interpolate_index-1, client_state_buffer.size()-1
+	)
+	return true
+	
 
 func _ready():
 	$camera.current = self.is_player
