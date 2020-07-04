@@ -54,11 +54,11 @@ func process_connected():
 		entity.entity_id = client_id
 		entities[client_id] = entity
 		
-		var init_state = Types.InitialState.new()
-		init_state.position = pos
-		init_state.entity_id = client_id
-		var obj = Types.serialize_initial_state(init_state)
-		$server.send_data(obj, client_id)
+		#var init_state = Types.InitialState.new()
+		#init_state.position = pos
+		#init_state.entity_id = client_id
+		#var obj = Types.serialize_initial_state(init_state)
+		#$server.send_data(obj, client_id)
 		
 func disconnect_client(client_id):
 	var entity = entities[client_id]

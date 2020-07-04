@@ -21,20 +21,19 @@ const SERVER_STATE_BUFFER_MAX_SIZE: int = 2048
 
 # (timestamp, input_number, position) tuples array
 var client_state_buffer: Array = []
-var is_thread_interpolation: bool = false
 var client_state_buffer_mutex: Mutex = Mutex.new()
 var interpolation_input_from: int = 0
 var interpolation_input_to: int = 0
 var interpolation_percentage: float = 0.0
 
+
+var last_entity_state_mutex: Mutex = Mutex.new()
+var last_entity_state: Types.EntityState
+
 var input_sequence_number: int = 0
 var world = null
 var looking_at: Vector2 = Vector2.ZERO
 var _triggered_times: int = 0
-
-
-func set_thread_interpolation(enable: bool):
-	is_thread_interpolation = enable
 
 func reset_triggered_times():
 	"""return triggered times"""
@@ -62,8 +61,8 @@ func calculate_position(input_from: int, input_to: int, input_interpolation_perc
 	
 
 
-var times = [0]
-var deltas = []
+#var times = [0]
+#var deltas = []
 
 func interpolate(render_time: float):
 	if client_state_buffer.size() < 2:
@@ -72,21 +71,21 @@ func interpolate(render_time: float):
 	
 	var buffer_copy = null
 	
-	deltas.append(render_time-times.back())
-	if len(deltas) == 100:
-		print(deltas)
-		print(client_state_buffer.size())
-		times.clear()
-		deltas.clear()
-	times.append(render_time)
+#	deltas.append(render_time-times.back())
+#	if len(deltas) == 100:
+#		print(deltas)
+#		print(client_state_buffer.size())
+#		times.clear()
+#		deltas.clear()
+#	times.append(render_time)
 	
-	if is_thread_interpolation:
-		client_state_buffer_mutex.lock()
-		buffer_copy = client_state_buffer.duplicate()
-		client_state_buffer.clear()
-		client_state_buffer_mutex.unlock()
-	else:
-		buffer_copy = client_state_buffer
+#	if is_thread_interpolation:
+#		client_state_buffer_mutex.lock()
+#		buffer_copy = client_state_buffer.duplicate()
+#		client_state_buffer.clear()
+#		client_state_buffer_mutex.unlock()
+#	else:
+	buffer_copy = client_state_buffer
 	
 	while buffer_copy[last_interpolate_index][0] <= render_time:
 		last_interpolate_index += 1
@@ -95,7 +94,7 @@ func interpolate(render_time: float):
 			self.interpolation_input_to = buffer_copy[last_interpolate_index-1][1]
 			self.interpolation_percentage = 1.0
 			self.position = buffer_copy[last_interpolate_index-1][2]
-			print("here")
+			print("render_time: %s, last: %s, before last: %s" % [render_time, buffer_copy[last_interpolate_index-1][0], buffer_copy[last_interpolate_index-2][0]])
 			buffer_copy.clear()
 			return
 			
@@ -114,11 +113,13 @@ func interpolate(render_time: float):
 		last_interpolate_index-1, buffer_copy.size()-1
 	)
 	
-	if is_thread_interpolation:
-		client_state_buffer_mutex.lock()
-		buffer_copy += client_state_buffer
-		client_state_buffer = buffer_copy
-		client_state_buffer_mutex.unlock()
+#	if is_thread_interpolation:
+#		client_state_buffer_mutex.lock()
+#		buffer_copy += client_state_buffer
+#		client_state_buffer = buffer_copy
+#		client_state_buffer_mutex.unlock()
+		
+		
 	#print(render_time)
 	#print(interpolation_percentage)
 	#print()
@@ -202,28 +203,36 @@ func apply_health(new_health: int):
 	if (new_health < health) and use_animation:
 		blood_animation()
 	health = new_health
-
-
-func apply_entity_state(state: Types.EntityState, timestamp: int):
+	
+	
+func set_state(state: Types.EntityState):
+	last_entity_state_mutex.lock()	
+	last_entity_state = state
+	last_entity_state_mutex.unlock()
+	
+func append_state(state: Types.EntityState, timestamp: int):
 	assert(not is_player)
-	self.look_at(state.look_at)
-	
-	self.input_sequence_number = state.last_processed_input
-	
-	if is_thread_interpolation:
-		client_state_buffer_mutex.lock()
-		
 	client_state_buffer.append(
 		[timestamp, state.last_processed_input, state.position]
 	)
 	
-	if is_thread_interpolation:
-		client_state_buffer_mutex.unlock()
+	set_state(state)
+
+func apply_last_state():
+	assert(not is_player)
+	if not last_entity_state:
+		return
+	var state = last_entity_state
+	self.look_at(state.look_at)
+	
+	self.input_sequence_number = state.last_processed_input
 	
 	apply_health(state.health)
 		
 	if state.is_triggered:
 		$weapon.shoot(false)
+		
+	set_state(null)
 	
 	
 func _unhandled_input(_event):
