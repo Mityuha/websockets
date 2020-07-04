@@ -116,13 +116,13 @@ func interpolate(render_time: float):
 	
 	# just linear interpolate it
 	self.interpolation_percentage = (render_time - time_from) / (time_to - time_from)
-	if not (self.interpolation_percentage <= 1.0 and self.interpolation_percentage >= 0.0):
-		print(self.interpolation_percentage, " ", 
-			render_time, " ", time_from, " ", time_to, " ",
-			last_interpolate_index, " ", client_state_buffer[last_interpolate_index], " ", 
-			client_state_buffer[last_interpolate_index-1] )
-		print(client_state_buffer)
-		return
+	assert(self.interpolation_percentage <= 1.0 and self.interpolation_percentage >= 0.0)
+#		print(self.interpolation_percentage, " ", 
+#			render_time, " ", time_from, " ", time_to, " ",
+#			last_interpolate_index, " ", client_state_buffer[last_interpolate_index], " ", 
+#			client_state_buffer[last_interpolate_index-1] )
+#		print(client_state_buffer)
+#		return
 	
 	self.position = pos_from + (pos_to - pos_from) * interpolation_percentage
 	client_state_buffer = client_state_buffer.slice(
