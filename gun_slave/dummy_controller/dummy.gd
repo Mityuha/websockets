@@ -1,7 +1,7 @@
 extends Node
 
 
-export var HOST: String = "ws://vscale.sofaxes.xyz:8080/"
+export var HOST: String = "ws://localhost:8080/"
 var entity_id = null
 var input_sequence_number: int = 0
 
@@ -45,13 +45,13 @@ func process_inputs(delta):
 	input.press_time = delta
 		
 	#input.look_at = get_global_mouse_position();
-	if Input.is_action_pressed('ui_right'):
+	if Input.is_key_pressed(KEY_D):
 		input.right = true
-	if Input.is_action_pressed('ui_left'):
+	if Input.is_key_pressed(KEY_A):
 		input.left = true
-	if Input.is_action_pressed('ui_down'):
+	if Input.is_key_pressed(KEY_S):
 		input.down = true
-	if Input.is_action_pressed('ui_up'):
+	if Input.is_key_pressed(KEY_W):
 		input.up = true
 	if Input.is_action_pressed("click"):
 		pass
