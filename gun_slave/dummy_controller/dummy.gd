@@ -5,9 +5,10 @@ export var HOST: String = "ws://vscale.sofaxes.xyz:8080/"
 var entity_id = null
 var input_sequence_number: int = 0
 
-func on_connected():
-	entity_id = $NetManager.get_network_unique_id()
-	self.set_physics_process(true)
+func on_peer_connected(peer_id):
+	if peer_id == 1:
+		entity_id = $NetManager.get_network_unique_id()
+		self.set_physics_process(true)
 	
 func on_disconnected():
 	entity_id = null
@@ -22,7 +23,7 @@ func _ready():
 	self.set_physics_process(false)
 	
 # warning-ignore:return_value_discarded
-	$NetManager.connect("connected", self, "on_connected")
+	$NetManager._client.connect("peer_connected", self, "on_peer_connected")
 # warning-ignore:return_value_discarded
 	$NetManager.connect("disconnected", self, "on_disconnected")
 	
