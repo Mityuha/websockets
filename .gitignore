@@ -137,3 +137,11 @@ dmypy.json
 gun_slave/client/common
 gun_slave/server/common
 gun_slave/dummy_controller/common
+*.cfg
+*.exe
+*.html
+*.js
+*.wasm
+gun_slave/client/*.png
+gun_slave/dummy_controller/*.png
+*.pck
