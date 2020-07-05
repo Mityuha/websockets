@@ -50,7 +50,7 @@ func calculate_position(input_from: int, input_to: int, input_interpolation_perc
 	var index_from = input_from - server_state_buffer[0][0]
 	var index_to = index_from + (input_to - input_from)
 	
-	if index_from >= 0:
+	if index_from < 0:
 		Utils._log("Entity %s index_from (%s) < 0. Is it cheat?" % [entity_id, index_from])
 		return
 		
