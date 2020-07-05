@@ -3,15 +3,13 @@ extends Node
 
 export var HOST: String = "ws://vscale.sofaxes.xyz:8080/"
 const is_multiplayer: bool = true
-const is_thread_interpolation: bool = true
+var is_html5: bool = OS.get_name() == "HTML5"
+const is_thread_interpolation: bool = false
 const INTERPOLATION_INTERVAL_MSEC:float = 1000.0 / 10; #ms
 const INTERPOLATION_INC_STEP_MSEC:float = 5.0 #ms
 var INTERPOLATION_EXTRA_TIME_MSEC:float = 0.0 #ms
 
 var entities: Dictionary = {}
-var disconnected_ids: Array = []
-var new_entities_messages: Array = []
-var disconnected_entities_messages: Array = []
 
 var entity_obj = preload("res://common/scene/character.tscn");
 onready var mutex = $NetManager.mutex
@@ -29,7 +27,7 @@ func on_connected():
 # warning-ignore:return_value_discarded
 		if not interpolation_thread.is_active():
 			interpolation_thread.start(self, "interpolate_entities_in_thread")
-		
+			
 	$character.entity_id = $NetManager.get_network_unique_id()
 	
 func on_disconnected():
@@ -37,13 +35,12 @@ func on_disconnected():
 		var _lg = $NetManager.LockGuard.new(mutex)
 		
 	if $character.entity_id:
-		disconnected_ids.append($character.entity_id)
 		$character.input_sequence_number = 0
 		$character.entity_id = null
 		
 	self.set_physics_process(false)
 	$NetManager.disconnect_from_host()
-	#$NetManager.connect_to_url(HOST)
+	$NetManager.connect_to_url(HOST)
 	
 	if is_thread_interpolation:
 		is_interpolation_thread_stopped = true
@@ -66,11 +63,11 @@ func _ready():
 	self.set_physics_process(false)
 	
 # warning-ignore:return_value_discarded
-	$NetManager.connect("connected", self, "on_connected")
-# warning-ignore:return_value_discarded
-	$NetManager.connect("disconnected", self, "on_disconnected")
-# warning-ignore:return_value_discarded
 	$NetManager._client.connect("peer_packet", self, "message_received")
+	$NetManager._client.connect("peer_connected", self, "on_peer_connected")
+	$NetManager._client.connect("peer_disconnected", self, "on_peer_disconnected")
+	$NetManager._client.connect("server_disconnected", self, "on_server_disconnected")
+	$NetManager.connect("disconnected", self, "on_disconnected")
 	
 	$NetManager.set_process(!is_thread_interpolation)
 	$NetManager.set_multithread(is_thread_interpolation)
@@ -78,25 +75,38 @@ func _ready():
 	$NetManager.connect_to_url(HOST)
 	
 	if is_thread_interpolation:
+# warning-ignore:return_value_discarded
 		interpolation_thread.start(self, "interpolate_entities_in_thread")
 		
 		
+func on_peer_connected(peer_id):
+	if peer_id == 1:
+		return on_connected()
+	if entities.has(peer_id):
+		return
+	var entity = entity_obj.instance()
+	entity.entity_id = peer_id
+	entities[peer_id] = entity
+	add_child(entity)
+	Utils._log("%s: Client just connected" % peer_id)
 		
-#var times: Array = [0]
-#var deltas: Array = []
-#
+		
+func on_peer_disconnected(peer_id):
+	if peer_id == 1:
+		return on_disconnected()
+	var entity = entities.get(peer_id)
+	if entities.erase(peer_id):
+		remove_child(entity)
+		
+func on_server_disconnected():
+	for entity_id in entities:
+		on_peer_disconnected(entity_id)
+	return on_disconnected()
+		
 func message_received(_peer_id=1):
 	
 	if not $character.entity_id:
 		return
-	
-#	var t = OS.get_ticks_msec()
-#	deltas.append(t-times.back())
-#	if len(deltas) == 100:
-#		print(deltas)
-#		times.clear()
-#		deltas.clear()
-#	times.append(t)
 	
 	var data = Utils.decode_data($NetManager.get_packet())
 	var obj = dict2inst(data)
@@ -108,33 +118,12 @@ func message_received(_peer_id=1):
 		var entity_state = Types.deserialize_entity_state(entity_state_obj)
 		var entity_id = entity_state.entity_id
 		
-		if disconnected_ids.has(entity_id):
-			continue
-				
-		if entity_state.last_processed_input == -1:
-			# disconnected
-			messages_mutex.lock()
-			disconnected_entities_messages.append(entity_state)
-			messages_mutex.unlock()
-			continue
-			
-		if not (entities.has(entity_id) or $character.entity_id == entity_id):
-			messages_mutex.lock()
-			new_entities_messages.append(entity_state)
-			messages_mutex.unlock()
-			continue
-		
 		if entities.has(entity_id):
 			entities.get(entity_id).append_state(entity_state, timestamp)
-		else:
+			
+		elif $character.entity_id != entity_id:
 			$character.set_state(entity_state)
-		
-	
-func remove_entity(entity_id):
-	var entity = entities.get(entity_id)
-	if entities.erase(entity_id):
-		remove_child(entity)
-		
+
 		
 func process_character_state():
 	var entity_state = $character.last_entity_state
@@ -160,30 +149,9 @@ func process_character_state():
 func process_server_messages():
 	if not is_multiplayer:
 		return
-	#var processed_entities: Array = []
 	
 	if $character.last_entity_state:
 		process_character_state()
-			
-	messages_mutex.lock()
-	var new_entity_messages_copy = new_entities_messages.duplicate()
-	var disconnected_entity_messages_copy = disconnected_entities_messages.duplicate()
-	new_entities_messages.clear()
-	disconnected_entities_messages.clear()
-	messages_mutex.unlock()
-	
-	for message in new_entity_messages_copy:
-		var entity_id = message.entity_id
-		if entities.has(entity_id):
-			continue
-		var entity = entity_obj.instance()
-		entity.position = message.position
-		entity.entity_id = entity_id
-		entities[entity_id] = entity
-		add_child(entity)
-		
-	for message in disconnected_entity_messages_copy:
-		remove_entity(message.entity_id)
 		
 	for entity in entities.values():
 		entity.apply_last_state()
@@ -205,6 +173,7 @@ func _interpolate_entities():
 	
 	
 func interpolate_entities_in_thread(_dummy=null):
+	assert(false)
 	while true:
 		if is_interpolation_thread_stopped:
 			break

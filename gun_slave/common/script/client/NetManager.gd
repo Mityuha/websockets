@@ -1,13 +1,11 @@
 extends Node
 
-signal connected;
 signal disconnected;
-
 var is_multithread: bool = true
 
 
+
 var _client = WebSocketClient.new()
-var _write_mode = WebSocketPeer.WRITE_MODE_BINARY
 var _use_multiplayer = true
 var to_exit: bool = false
 
@@ -21,15 +19,15 @@ func set_multithread(enable: bool):
 
 func _init():
 	_client.verify_ssl = false
-	_client.connect("connection_established", self, "_client_connected")
-	_client.connect("connection_error", self, "_client_disconnected")
-	_client.connect("connection_closed", self, "_client_disconnected")
-	_client.connect("server_close_request", self, "_client_close_request")
+#	_client.connect("connection_established", self, "_client_connected")
+#	_client.connect("connection_error", self, "_client_disconnected")
+#	_client.connect("connection_closed", self, "_client_disconnected")
+#	_client.connect("server_close_request", self, "_client_close_request")
 	#_client.connect("data_received", self, "_client_received")
 
 	#_client.connect("peer_packet", self, "_client_received")
-	_client.connect("peer_connected", self, "_peer_connected")
-	_client.connect("connection_succeeded", self, "_client_connected", ["multiplayer_protocol"])
+	#_client.connect("peer_connected", self, "_peer_connected")
+	#_client.connect("connection_succeeded", self, "_client_connected", ["multiplayer_protocol"])
 	_client.connect("connection_failed", self, "_client_disconnected")
 
 	
@@ -42,9 +40,6 @@ func get_network_unique_id():
 
 func _client_close_request(code, reason):
 	Utils._log("Close code: %d, reason: %s" % [code, reason])
-
-func _peer_connected(id):
-	Utils._log("%s: Client just connected" % id)
 
 func _exit_tree():
 	to_exit = true
@@ -77,13 +72,6 @@ func poll(_delta):
 		_client.poll()
 		mutex.unlock()
 
-func _client_connected(_protocol=""):
-	if is_multithread:
-		var _lg = LockGuard.new(mutex)
-		
-	_client.get_peer(1).set_write_mode(_write_mode)
-	emit_signal("connected")
-
 func _client_disconnected(clean=true):
 	Utils._log("Client just disconnected. Was clean: %s" % clean)
 	emit_signal("disconnected")
@@ -92,19 +80,6 @@ func _client_disconnected(clean=true):
 func get_packet()->PoolByteArray:
 	var _lg = Utils.LockGuard.new(mutex)
 	return _client.get_packet()
-	
-
-#func _client_received(_p_id = 1):
-#	assert(false)
-#	var receive_time = OS.get_ticks_msec()
-#
-#	mutex.lock()
-#	var data = Utils.decode_data(_client.get_packet())
-#	mutex.unlock()
-#
-#	receive_message_queue_mutex.lock()
-#	receive_message_queue.push_back([receive_time, data])	
-#	receive_message_queue_mutex.unlock()
 
 func connect_to_url(host, protocols=null, multiplayer=true):
 	if is_multithread:
@@ -113,7 +88,6 @@ func connect_to_url(host, protocols=null, multiplayer=true):
 	if not protocols:
 		protocols = PoolStringArray()
 	_use_multiplayer = multiplayer
-	_write_mode = WebSocketPeer.WRITE_MODE_BINARY
 	
 	if get_network_unique_id():
 		assert(false)
