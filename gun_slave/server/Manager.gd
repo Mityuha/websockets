@@ -11,12 +11,10 @@ var entity_obj = preload("res://common/scene/character.tscn");
 
 var entities: Dictionary = {}
 var entities_2_last_processed_input: Dictionary = {}
-var entities_remove_queue: Array = [] # entities to remove
+
 var entities_invisible_queue: Array = [] # invisible entities (respawn)
 
 onready var mutex = $server.mutex
-onready var connected_clients_mutex = $server.connected_clients_mutex
-onready var disconnected_clients_mutex = $server.disconnected_clients_mutex
 onready var message_queue_mutex = $server.message_queue_mutex
 var LockGuard = Utils.LockGuard
 
@@ -31,6 +29,8 @@ func _ready():
 		Utils._log("Error listening on port %s" % PORT)
 		
 	$server.set_multithread(is_multithread)
+	$server._server.connect("peer_connected", self, "on_peer_connected")
+	$server._server.connect("peer_disconnected", self, "on_peer_disconnected")
 	
 	if is_multithread:
 		$server.start_poll()
@@ -38,45 +38,27 @@ func _ready():
 func random_position(x_from=200, x_to=500, y_from=200, y_to=500):
 	return Vector2(rand_range(x_from, x_to), rand_range(y_from, y_to))
 	
-		
-func process_connected():
-	if is_multithread:
-		var _lg = LockGuard.new(connected_clients_mutex)
-		
-	while $server.connected_clients_queue:
-		var client_id = $server.connected_clients_queue.pop_back()
-		var pos = random_position()
-		
-		var entity:character = entity_obj.instance()
-		entity.set_animation(false)
-		add_child(entity)
-		entity.position = pos
-		entity.entity_id = client_id
-		entities[client_id] = entity
-		
-		#var init_state = Types.InitialState.new()
-		#init_state.position = pos
-		#init_state.entity_id = client_id
-		#var obj = Types.serialize_initial_state(init_state)
-		#$server.send_data(obj, client_id)
-		
-func disconnect_client(client_id):
-	var entity = entities[client_id]
+func on_peer_connected(peer_id):
+	var pos = random_position()
+	
+	var entity:character = entity_obj.instance()
+	entity.set_animation(false)
+	add_child(entity)
+	entity.position = pos
+	entity.entity_id = peer_id
+	entities[peer_id] = entity
+	Utils._log("%s: Client connected" % peer_id)
+	
+func on_peer_disconnected(peer_id, clean=true):
+	
+	var entity = entities[peer_id]
 # warning-ignore:return_value_discarded
-	entities_2_last_processed_input.erase(client_id)
+	entities_2_last_processed_input.erase(peer_id)
 	remove_child(entity)
 # warning-ignore:return_value_discarded
-	entities.erase(client_id)
-	entities_remove_queue.append(client_id)
-		
-func process_disconnected():
-	if is_multithread:
-		var _lg = LockGuard.new(disconnected_clients_mutex)
-		
-	while $server.disconnected_clients_queue:
-		var client_id = $server.disconnected_clients_queue.pop_back()
-# warning-ignore:return_value_discarded
-		disconnect_client(client_id)
+	entities.erase(peer_id)
+	Utils._log("%s: Client disconnected. Was clean: %s" % [peer_id, clean])
+	
 		
 func process_trigger(input: Types.EntityInput):
 	if not input.shot_entity_id:
@@ -147,12 +129,6 @@ func get_world_state()->Dictionary:
 			if entity.no_input_counter > MAX_NO_INPUT_COUNT:
 				$server._disconnect_client(entity.entity_id)
 				
-
-	while entities_remove_queue:
-		var entity_id = entities_remove_queue.pop_back()
-		var entity_state = Types.EntityState.new()
-		entity_state.entity_id = entity_id
-		entity_state.last_processed_input = -1
 		world_state.entity_states.append(Types.serialize_entity_state(entity_state))
 			
 	return Types.serialize_world_state(world_state)
@@ -162,25 +138,14 @@ func _physics_process(delta):
 	if not is_multithread:
 		$server.poll(delta)
 		
-	if not $server._clients:
-		if entities.size():
-			process_disconnected()
-			for entity_id in entities:
-				disconnect_client(entity_id)
-			entities.clear()
-		return
-		
 	already_passed += delta
 	if already_passed < UPDATE_INTERVAL:
 		return
 	already_passed = 0.0
-	
-	process_connected()
 	
 	process_world()
 	
 	var state_pkg = get_world_state()
 	$server.broadcast_data(state_pkg)
 	
-	process_disconnected()
 

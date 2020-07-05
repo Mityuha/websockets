@@ -1,7 +1,7 @@
 extends Node
 
 
-export var HOST: String = "ws://vscale.sofaxes.xyz:8080/"
+export var HOST: String = "ws://localhost:8080/"
 const is_multiplayer: bool = true
 var is_html5: bool = OS.get_name() == "HTML5"
 const is_thread_interpolation: bool = false
@@ -121,7 +121,7 @@ func message_received(_peer_id=1):
 		if entities.has(entity_id):
 			entities.get(entity_id).append_state(entity_state, timestamp)
 			
-		elif $character.entity_id != entity_id:
+		elif $character.entity_id == entity_id:
 			$character.set_state(entity_state)
 
 		
