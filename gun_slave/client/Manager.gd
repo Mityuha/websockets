@@ -18,32 +18,6 @@ var messages_mutex = Mutex.new()
 
 var interpolation_thread: Thread;
 var is_interpolation_thread_stopped: bool = false
-
-func on_connected():
-	self.set_physics_process(true)
-	
-	if is_thread_interpolation:
-		is_interpolation_thread_stopped = false
-# warning-ignore:return_value_discarded
-		if not interpolation_thread.is_active():
-			interpolation_thread.start(self, "interpolate_entities_in_thread")
-			
-	$character.entity_id = $NetManager.get_network_unique_id()
-	
-func on_disconnected():
-	if is_thread_interpolation:
-		var _lg = $NetManager.LockGuard.new(mutex)
-		
-	if $character.entity_id:
-		$character.input_sequence_number = 0
-		$character.entity_id = null
-		
-	self.set_physics_process(false)
-	$NetManager.disconnect_from_host()
-	$NetManager.connect_to_url(HOST)
-	
-	if is_thread_interpolation:
-		is_interpolation_thread_stopped = true
 		
 func _exit_tree():
 	if is_thread_interpolation:
@@ -78,7 +52,18 @@ func _ready():
 # warning-ignore:return_value_discarded
 		interpolation_thread.start(self, "interpolate_entities_in_thread")
 		
-		
+func on_connected():
+	self.set_physics_process(true)
+	
+	if is_thread_interpolation:
+		is_interpolation_thread_stopped = false
+# warning-ignore:return_value_discarded
+		if not interpolation_thread.is_active():
+			interpolation_thread.start(self, "interpolate_entities_in_thread")
+			
+	$character.entity_id = $NetManager.get_network_unique_id()
+	
+	
 func on_peer_connected(peer_id):
 	if peer_id == 1:
 		return on_connected()
@@ -89,18 +74,38 @@ func on_peer_connected(peer_id):
 	entities[peer_id] = entity
 	add_child(entity)
 	Utils._log("%s: Client just connected" % peer_id)
+	
+func on_disconnected():
+	if is_thread_interpolation:
+		var _lg = $NetManager.LockGuard.new(mutex)
 		
+	for entity_id in entities:
+		free_entity(entity_id)
+		
+	if $character.entity_id:
+		$character.input_sequence_number = 0
+		$character.entity_id = null
+		
+	self.set_physics_process(false)
+	$NetManager.disconnect_from_host()
+	$NetManager.connect_to_url(HOST)
+	
+	if is_thread_interpolation:
+		is_interpolation_thread_stopped = true
+		
+
+func free_entity(entity_id):
+	var entity:character = entities.get(entity_id)
+	if entities.erase(entity_id):
+		remove_child(entity)
+		entity.queue_free()
 		
 func on_peer_disconnected(peer_id):
 	if peer_id == 1:
 		return on_disconnected()
-	var entity = entities.get(peer_id)
-	if entities.erase(peer_id):
-		remove_child(entity)
+	free_entity(peer_id)
 		
 func on_server_disconnected():
-	for entity_id in entities:
-		on_peer_disconnected(entity_id)
 	return on_disconnected()
 		
 func message_received(_peer_id=1):
@@ -109,7 +114,7 @@ func message_received(_peer_id=1):
 		return
 	
 	var data = Utils.decode_data($NetManager.get_packet())
-	var obj = dict2inst(data)
+	var obj:Object = dict2inst(data)
 	
 	var timestamp = OS.get_ticks_msec()
 
