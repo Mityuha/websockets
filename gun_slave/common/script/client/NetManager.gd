@@ -46,13 +46,15 @@ func _exit_tree():
 	disconnect_from_host()
 
 func _process(_delta):
-	if _client.get_connection_status() == WebSocketClient.CONNECTION_DISCONNECTED:
-		return
+#	if _client.get_connection_status() == WebSocketClient.CONNECTION_DISCONNECTED:
+#		emit_signal("disconnected")
+#		return
 
 	_client.poll()
 	
 func poll2():
 	if _client.get_connection_status() == WebSocketClient.CONNECTION_DISCONNECTED:
+		emit_signal("disconnected")
 		return
 
 	mutex.lock()
@@ -105,7 +107,6 @@ func send_data(data, dest=WebSocketClient.TARGET_PEER_SERVER):
 		var _lg = LockGuard.new(mutex)
 		
 	if _client.get_connection_status() == WebSocketClient.CONNECTION_DISCONNECTED:
-		emit_signal("disconnected")
 		return
 		
 	_client.set_target_peer(dest)
