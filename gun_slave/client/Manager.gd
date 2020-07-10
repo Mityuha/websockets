@@ -17,6 +17,7 @@ onready var mutex = $NetManager.mutex
 var messages_mutex = Mutex.new()
 
 var interpolation_thread: Thread;
+var is_interpolation_thread_paused: bool = false
 var is_interpolation_thread_stopped: bool = false
 		
 func _exit_tree():
@@ -56,10 +57,7 @@ func on_connected():
 	self.set_physics_process(true)
 	
 	if is_thread_interpolation:
-		is_interpolation_thread_stopped = false
-# warning-ignore:return_value_discarded
-		if not interpolation_thread.is_active():
-			interpolation_thread.start(self, "interpolate_entities_in_thread")
+		is_interpolation_thread_paused = false
 			
 	$character.entity_id = $NetManager.get_network_unique_id()
 	
@@ -84,14 +82,16 @@ func on_disconnected():
 		
 	if $character.entity_id:
 		$character.input_sequence_number = 0
+		$character.pending_inputs.clear()
 		$character.entity_id = null
 		
 	self.set_physics_process(false)
 	$NetManager.disconnect_from_host()
-	$NetManager.connect_to_url(HOST)
 	
 	if is_thread_interpolation:
-		is_interpolation_thread_stopped = true
+		is_interpolation_thread_paused = true
+		
+	$NetManager.connect_to_url(HOST)
 		
 
 func free_entity(entity_id):
@@ -109,7 +109,6 @@ func on_server_disconnected():
 	return on_disconnected()
 		
 func message_received(_peer_id=1):
-	
 	if not $character.entity_id:
 		return
 	
@@ -138,6 +137,8 @@ func process_character_state():
 		
 	var start_number = $character.pending_inputs[0].input_sequence_number
 	var from = entity_state.last_processed_input - start_number
+	
+	assert(from >= 0)
 	
 	$character.pending_inputs = $character.pending_inputs.slice(
 		from, $character.pending_inputs.size()-1 )
@@ -178,11 +179,12 @@ func _interpolate_entities():
 	
 	
 func interpolate_entities_in_thread(_dummy=null):
-	assert(false)
 	while true:
 		if is_interpolation_thread_stopped:
 			break
 		$NetManager.poll2()
+		if is_interpolation_thread_paused:
+			continue
 		_interpolate_entities()
 
 
