@@ -139,6 +139,9 @@ func _physics_process(delta):
 	if not is_multithread:
 		$server.poll(delta)
 		
+	if not entities:
+		return
+
 	already_passed += delta
 	if already_passed < UPDATE_INTERVAL:
 		return
