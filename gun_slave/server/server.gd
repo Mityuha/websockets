@@ -1,11 +1,13 @@
 extends Node
 
 var _server = WebSocketServer.new()
-var _clients = {}
-#var _write_mode = WebSocketPeer.WRITE_MODE_BINARY
+
 var _is_multithread = true
 
 var receive_message_queue: Array = []
+
+# To test maybe
+# var broadcast_queue: Array = []
 
 var poll_thread: Thread
 
@@ -26,13 +28,13 @@ func _init():
 	
 	
 func start_poll():
+# warning-ignore:return_value_discarded
 	poll_thread.start(self, "poll_in_thread")
 	
 func set_multithread(enable: bool):
 	_is_multithread = enable
 
 func _exit_tree():
-	_clients.clear()
 	_server.stop()
 	poll_thread.wait_to_finish()
 		
