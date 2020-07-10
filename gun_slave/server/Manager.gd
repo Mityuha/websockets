@@ -57,6 +57,7 @@ func on_peer_disconnected(peer_id, clean=true):
 	remove_child(entity)
 # warning-ignore:return_value_discarded
 	entities.erase(peer_id)
+	entity.queue_free()
 	Utils._log("%s: Client disconnected. Was clean: %s" % [peer_id, clean])
 	
 		
