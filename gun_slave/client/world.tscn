@@ -20,3 +20,5 @@ is_player = true
 
 [node name="NetManager" type="Node" parent="Manager"]
 script = ExtResource( 4 )
+
+[node name="interface" type="CanvasLayer" parent="Manager"]
