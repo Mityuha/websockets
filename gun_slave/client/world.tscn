@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=2]
+[gd_scene load_steps=6 format=2]
 
 [ext_resource path="res://common/map.tscn" type="PackedScene" id=1]
 [ext_resource path="res://common/scene/character.tscn" type="PackedScene" id=2]
 [ext_resource path="res://Manager.gd" type="Script" id=3]
 [ext_resource path="res://common/script/client/NetManager.gd" type="Script" id=4]
+[ext_resource path="res://common/scene/user_interface.tscn" type="PackedScene" id=5]
 
 [node name="world" type="Node2D"]
 
@@ -20,3 +21,7 @@ is_player = true
 
 [node name="NetManager" type="Node" parent="Manager"]
 script = ExtResource( 4 )
+
+[node name="interface" type="CanvasLayer" parent="Manager"]
+
+[node name="user_interface" parent="Manager/interface" instance=ExtResource( 5 )]

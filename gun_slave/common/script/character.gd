@@ -209,8 +209,8 @@ func apply_health(new_health: int):
 	if (new_health < health) and use_animation:
 		blood_animation()
 	health = new_health
-	
-	
+	get_parent().get_node("interface/user_interface/health/health_text").text = str(health);
+
 func set_state(state: Types.EntityState):
 	last_entity_state_mutex.lock()	
 	last_entity_state = state
@@ -258,15 +258,15 @@ func hit_enemy(enemy: character):
 	return enemy.hit($weapon.damage)
 
 func hit(damage:int)->void:
-	self.health -= damage;
+	self.apply_health(self.health - damage);
+#   self.health -= damage;
 #	if health <= 0:
 #		self.position.x += 100
 #		self.health = MAX_HEALTH
-#
 	if not use_animation:
 		return
 		
-	blood_animation()
+	#blood_animation()
 #	if self.health <= 0:
 #		self.hide()
 		
