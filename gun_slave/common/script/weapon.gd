@@ -31,6 +31,7 @@ func shoot(has_hit: bool)->void:
 #			body.hit(self.damage);
 		
 	if use_animation:
+		$sound.play();
 		var target_pos:Vector2 = $bullet_point/cast.get_collision_point() if has_hit \
 							else to_global($bullet_point/cast.cast_to);
 		var trace = trace_obj.instance();

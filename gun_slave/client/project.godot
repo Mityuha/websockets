@@ -35,6 +35,10 @@ config/icon="res://icon.png"
 Utils="*res://common/utils.gd"
 Types="*res://common/types.gd"
 
+[display]
+
+window/size/resizable=false
+
 [global]
 
 port=false
