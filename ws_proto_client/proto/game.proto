@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+// Название пакета который будет сгенерирован
+option java_package = "pnh.game.proto";
+// Название класса - в нём будут находиться классы сообщений
+option java_outer_classname = "GameProto";
+
+enum StatusCode {
+    SEARCH_FOR_RIVAL = 0;
+    RIVAL_FOUND = 1;
+    RIVAL_DISCONNECTED = 2;
+}
+
+message ServerMessage {
+    StatusCode code = 1;
+    string reason = 2;
+}
+
+message ClientMessage {
+  string text = 1;
+  string username = 2;
+}
+
+message Message {
+    oneof data {
+        ClientMessage client_message = 1;
+        ServerMessage server_message = 2;
+    }
+}
+
